@@ -1,0 +1,4 @@
+project_id = "gcjvnpytgipqlgindews"
+
+[functions.bizguard-vision]
+verify_jwt = false

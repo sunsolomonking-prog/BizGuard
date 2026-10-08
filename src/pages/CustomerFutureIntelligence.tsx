@@ -1,0 +1,9 @@
+import React from 'react';
+import { BrainCircuit, Lock, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAppStore } from '../store';
+import { buildCustomerFutureIntelligence, type CustomerFutureIntelligenceResult } from '../lib/customerFutureIntelligence';
+import { formatCurrency } from '../utils/helpers';
+export const CustomerFutureIntelligence: React.FC = () => { const { currentBusiness }=useAppStore(); const [r,setR]=React.useState<CustomerFutureIntelligenceResult|null>(null); const [l,setL]=React.useState(true); const load=React.useCallback(async()=>{ if(!currentBusiness?.id){setL(false);return} setL(true); setR(await buildCustomerFutureIntelligence(currentBusiness.id)); setL(false);},[currentBusiness?.id]); React.useEffect(()=>{load()},[load]); if(r&&!r.subscription.allowed)return <Gate/>; return <div className="space-y-6"><div className="flex justify-between"><h1 className="text-3xl font-black"><BrainCircuit className="mr-2 inline text-purple-600"/>AI Customer Future Intelligence</h1><button onClick={load} className="rounded-xl border px-4 py-2 font-black"><RefreshCw className={`mr-2 inline h-4 w-4 ${l?'animate-spin':''}`}/>Refresh</button></div><div className="grid gap-3">{r?.predictions.map(p=><div key={p.customer.id} className="rounded-xl border bg-white p-4"><p className="font-black">{p.customer.name} · {p.patronageProbability}% · {p.expectedPurchaseWindow}</p><p className="text-sm text-slate-600">{p.predictedNextPurchase} · {formatCurrency(p.estimatedOrderValue)} · {p.customerTier}</p></div>)}</div></div> };
+const Gate=()=> <div className="rounded-3xl bg-purple-50 p-10 text-center"><Lock className="mx-auto text-purple-700"/><h1 className="text-2xl font-black">Upgrade to unlock AI Customer Future Intelligence</h1><Link to="/subscription" className="mt-4 inline-block rounded-xl bg-purple-600 px-5 py-3 text-white">Upgrade</Link></div>;
+export default CustomerFutureIntelligence;

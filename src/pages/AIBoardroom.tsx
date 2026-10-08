@@ -1,0 +1,8 @@
+import React from 'react';
+import { BriefcaseBusiness, RefreshCw } from 'lucide-react';
+import { useAppStore } from '../store';
+import { getAIBoardroom, type NeuralCoreResult } from '../lib/neuralCore';
+import { formatCurrency } from '../utils/helpers';
+export const AIBoardroom: React.FC = () => { const { currentBusiness } = useAppStore(); const [r,setR]=React.useState<NeuralCoreResult|null>(null); const [l,setL]=React.useState(true); const load=React.useCallback(async()=>{ if(!currentBusiness?.id){setL(false);return} setL(true); setR(await getAIBoardroom(currentBusiness.id)); setL(false);},[currentBusiness?.id]); React.useEffect(()=>{load()},[load]); return <div className="space-y-6"><div className="flex justify-between"><h1 className="text-3xl font-black"><BriefcaseBusiness className="mr-2 inline text-purple-600"/>AI Boardroom</h1><button onClick={load} className="rounded-xl border px-4 py-2 font-black"><RefreshCw className={`mr-2 inline h-4 w-4 ${l?'animate-spin':''}`}/>Refresh</button></div><div className="rounded-3xl bg-slate-950 p-6 text-white"><h2 className="text-xl font-black">{r?.title||'AI Boardroom'}</h2><p className="mt-2 text-purple-100">{r?.summary||'Loading...'}</p></div><div className="grid gap-4 md:grid-cols-3"><Card label="Revenue" value={formatCurrency(r?.snapshot.revenue||0)}/><Card label="Receivables" value={formatCurrency(r?.snapshot.outstanding||0)}/><Card label="Health" value={`${r?.snapshot.healthScores.overall||0}/100`}/></div></div> };
+const Card=({label,value}:{label:string;value:string})=><div className="rounded-2xl border bg-white p-5"><p className="text-xs font-black uppercase text-slate-500">{label}</p><p className="text-2xl font-black">{value}</p></div>;
+export default AIBoardroom;

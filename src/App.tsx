@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 import { Layout } from './components/layout';
 import {
   Dashboard,

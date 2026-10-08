@@ -88,6 +88,17 @@ export const ensureUserProfile = async (options?: {
     bizguardDebug('ensureUserProfile.rpc.compatibilityFallback', { userId: user.id, error: rpcResult.error.message });
   }
 
+  // Preserve an existing role during the legacy profile-repair fallback.
+  // This path may run during every sign-in when the repair RPC is unavailable;
+  // it must never downgrade a Super Admin (or any existing role) to "owner".
+  const { data: existingProfile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const preservedRole = existingProfile?.role ?? 'owner';
+
   const { data, error } = await supabase
     .from('users')
     .upsert({
@@ -95,7 +106,7 @@ export const ensureUserProfile = async (options?: {
       email: user.email || '',
       name: normalizeNullableText(options?.name) || user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Business Owner',
       business_id: normalizedBusinessId,
-      role: 'owner',
+      role: preservedRole,
     }, { onConflict: 'id' })
     .select('*')
     .single();

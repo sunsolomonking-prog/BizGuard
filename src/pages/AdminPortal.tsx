@@ -37,7 +37,13 @@ const money = (value: number) => new Intl.NumberFormat('en-NG', { style: 'curren
 
 export const AdminPortal: React.FC = () => {
   const { user, currentBusiness } = useAppStore();
-  const adminRpc = supabase.rpc as any;
+  // Keep Supabase RPC method bound to the client instance. Extracting
+  // supabase.rpc loses its `this` context and causes "Cannot read properties
+  // of undefined (reading 'rest')" in production.
+  const adminRpc = React.useCallback(
+    (functionName: string, args?: Record<string, unknown>) => supabase.rpc(functionName, args),
+    [],
+  );
   const [users, setUsers] = React.useState<AdminUser[]>([]);
   const [payments, setPayments] = React.useState<PaymentRequest[]>([]);
   const [loading, setLoading] = React.useState(true);

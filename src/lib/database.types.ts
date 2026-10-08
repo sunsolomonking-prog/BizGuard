@@ -739,6 +739,13 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      // Existing Authorization primitive created by the BizGuard migrations
+      // (202610010002/202610010003/202610010004). The admin RPCs and RLS
+      // policies use this function as their Super Admin predicate.
+      is_current_user_super_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
       has_business_role: {
         Args: {
           target_business_id: string;

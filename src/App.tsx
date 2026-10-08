@@ -73,12 +73,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: Enter
   if (isLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  // Admin Portal is a Super Admin surface, not a business-workspace surface.
-  // Allow an authenticated Super Admin into /admin even when no business context
-  // is loaded yet. All other protected routes retain the existing business-context gate.
-  const isSuperAdminRoute = allowedRoles?.includes('super_admin') && user?.role === 'super_admin';
-  if (isSuperAdminRoute) return <>{children}</>;
-
   if (!currentBusiness) {
     bizguardDebug('ProtectedRoute.noCurrentBusiness', { userId: user?.id || null, userBusinessId: user?.businessId || null, currentBusiness: null });
     return <LoadingScreen />;
@@ -87,34 +81,105 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: Enter
   return <>{children}</>;
 };
 
+/**
+ * Admin Portal guard.
+ *
+ * The Admin Portal is a Super Admin surface, not a business-workspace surface:
+ * it is authorized with the existing Supabase role architecture
+ * (public.users.role via the existing admin RPCs) and it must never require
+ * currentBusiness/currentBusinessId to be loaded first.
+ *
+ * The guard resolves authentication from the Supabase session instead of
+ * trusting the first render of the Zustand store, so a direct navigation or
+ * reload of /admin can never bounce to "/" before authorization is resolved.
+ */
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading, user } = useAppStore();
-  const [isChecking, setIsChecking] = React.useState(true);
-  const [allowed, setAllowed] = React.useState(user?.role === 'super_admin');
+  const { user } = useAppStore();
+  const [decision, setDecision] = React.useState<'checking' | 'allowed' | 'denied' | 'signed-out'>('checking');
 
   React.useEffect(() => {
     let mounted = true;
-    if (!isAuthenticated || isLoading) {
-      setIsChecking(false);
-      return;
-    }
 
-    setIsChecking(true);
-    checkSuperAdminAccess(user?.role).then((result) => {
-      if (!mounted) return;
-      setAllowed(result);
-      setIsChecking(false);
-    });
+    const evaluate = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (!sessionData?.session) {
+          setDecision('signed-out');
+          return;
+        }
+
+        const allowed = await checkSuperAdminAccess(user?.role);
+        bizguardDebug('AdminRoute.decision', { userId: sessionData.session.user?.id || null, allowed });
+        if (mounted) setDecision(allowed ? 'allowed' : 'denied');
+      } catch (error) {
+        bizguardDebug('AdminRoute.check.failed', { error: error instanceof Error ? error.message : String(error) });
+        // Fail closed: an unresolved authorization result never opens the portal.
+        if (mounted) setDecision('denied');
+      }
+    };
+
+    void evaluate();
 
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated, isLoading, user?.role]);
+  }, [user?.role]);
 
-  if (isLoading || isChecking) return <LoadingScreen />;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!allowed) return <Navigate to="/" replace />;
+  if (decision === 'checking') return <LoadingScreen />;
+  if (decision === 'signed-out') return <Navigate to="/login" replace />;
+  if (decision === 'denied') return <Navigate to="/" replace />;
   return <>{children}</>;
+};
+
+/**
+ * Resolves an authenticated Supabase session into BizGuard application state.
+ *
+ * Super Admin status is resolved with the server-authoritative predicate
+ * (`checkSuperAdminAccess`) before the business workspace is touched. The
+ * business context is then hydrated for every role - Super Admins included, so
+ * the normal dashboard keeps working - but a Super Admin whose workspace is
+ * missing or cannot be created still resolves: the Admin Portal must never
+ * depend on currentBusiness/currentBusinessId being loaded.
+ *
+ * Ordinary users keep the existing behaviour: a missing profile or business
+ * still rejects the hydration, exactly as before.
+ */
+const resolveSignedInState = async (
+  authUser: { id: string; email?: string | null },
+  options?: { businessName?: string | null },
+): Promise<{ user: AppUser; business: ReturnType<typeof toAppBusiness> | null; isSuperAdmin: boolean }> => {
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  const isSuperAdmin = await checkSuperAdminAccess((profile as Profile | null)?.role ?? null);
+
+  try {
+    const context = await ensureBusinessContext({ businessName: options?.businessName });
+    bizguardDebug('App.resolveSignedInState.context', { userId: context.user?.id || null, isSuperAdmin, profileBusinessId: context.profile?.business_id || null, loadedBusinessId: context.business?.id || null });
+    if (!context.profile) throw new Error('BizGuard could not create or load your user profile.');
+    if (!isSuperAdmin && !context.business) throw new Error('Business was not created. Check Supabase business context migration.');
+
+    const resolvedProfile = context.profile as Profile;
+    const effectiveProfile = isSuperAdmin ? ({ ...resolvedProfile, role: 'super_admin' } as Profile) : resolvedProfile;
+    return {
+      user: toAppUser(effectiveProfile),
+      business: context.business ? toAppBusiness(context.business) : null,
+      isSuperAdmin,
+    };
+  } catch (error) {
+    if (!isSuperAdmin) throw error;
+    bizguardDebug('App.resolveSignedInState.superAdmin.withoutBusiness', { userId: authUser.id, error: error instanceof Error ? error.message : String(error) });
+    if (profileError || !profile) throw new Error('BizGuard could not load the Super Admin profile.');
+    return {
+      user: toAppUser({ ...(profile as Profile), role: 'super_admin' } as Profile),
+      business: null,
+      isSuperAdmin: true,
+    };
+  }
 };
 
 type AuthMode = 'signin' | 'signup' | 'reset' | 'magic';
@@ -130,39 +195,18 @@ const LoginPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const loadSignedInProfile = async () => {
-    // Super Admin access is independent of business context. Resolve the
-    // server-authoritative admin predicate BEFORE ensureBusinessContext(),
-    // because that helper may require/create a business for ordinary users.
+    // Super Admin authorization is resolved from the existing Supabase role
+    // architecture inside resolveSignedInState, independently of the business
+    // workspace context.
     const { data: authData, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !authData.user) throw new Error('Authenticated user could not be loaded.');
 
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .maybeSingle();
-    if (profileError || !profile) throw new Error('Profile was not created. Check Supabase auth trigger/migrations.');
-
-    const loginIsSuperAdmin = await checkSuperAdminAccess(profile.role);
-    if (loginIsSuperAdmin) {
-      const effectiveLoginProfile = { ...profile, role: 'super_admin' as const };
-      setUser(toAppUser(effectiveLoginProfile));
-      setCurrentBusiness(null);
-      setBusinesses([]);
-      bizguardDebug('Login.superAdmin', { userId: authData.user.id, currentBusiness: null });
-      return;
-    }
-
-    const context = await ensureBusinessContext({ businessName });
-    bizguardDebug('Login.loadSignedInProfile.context', { userId: context.user?.id || null, profileBusinessId: context.profile?.business_id || null, loadedBusinessId: context.business?.id || null });
-    if (!context.profile) throw new Error('Profile was not created. Check Supabase auth trigger/migrations.');
-    if (!context.business) throw new Error('Business was not created. Check Supabase business context migration.');
-
-    const loginProfile = context.profile as Profile;
-    setUser(toAppUser(loginProfile));
-    const appBusiness = toAppBusiness(context.business);
-    setCurrentBusiness(appBusiness);
-    setBusinesses([appBusiness]);
+    const resolved = await resolveSignedInState(authData.user, { businessName });
+    setUser(resolved.user);
+    setCurrentBusiness(resolved.business);
+    setBusinesses(resolved.business ? [resolved.business] : []);
+    bizguardDebug('Login.resolveSignedInState', { userId: resolved.user.id, isSuperAdmin: resolved.isSuperAdmin, loadedBusinessId: resolved.business?.id || null });
+    return resolved;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -196,10 +240,11 @@ const LoginPage: React.FC = () => {
 
       const { error } = await signIn(email, password);
       if (error) throw error;
-      await loadSignedInProfile();
+      const resolvedSession = await loadSignedInProfile();
       toast.success('Signed in successfully');
-      const { data: adminAfterLogin } = await supabase.rpc('is_super_admin');
-      navigate(adminAfterLogin === true ? '/admin' : '/', { replace: true });
+      // Super Admins land on the existing Admin Portal; everyone else keeps the
+      // existing dashboard entry point.
+      navigate(resolvedSession.isSuperAdmin ? '/admin' : '/', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
@@ -311,49 +356,22 @@ const AuthBootstrap: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           return;
         }
 
-        // Resolve Super Admin BEFORE business-context bootstrap. Super Admins
-        // are allowed to exist without a current business.
-        let serverIsSuperAdmin = false;
-        try {
-          const { data } = await supabase.rpc('is_super_admin');
-          serverIsSuperAdmin = data === true;
-        } catch (error) {
-          bizguardDebug('AuthBootstrap.superAdminCheck', { error: error instanceof Error ? error.message : String(error) });
-        }
-
-        if (serverIsSuperAdmin) {
-          const { data: adminProfile, error: adminProfileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', authUser.id)
-            .maybeSingle();
-          if (adminProfileError || !adminProfile) throw new Error('BizGuard could not load the Super Admin profile.');
-          setUser(toAppUser({ ...adminProfile, role: 'super_admin' } as Profile));
-          setCurrentBusiness(null);
-          setBusinesses([]);
-          bizguardDebug('AuthBootstrap.superAdmin', { userId: authUser.id, currentBusiness: null });
-          return;
-        }
-
-        const context = await ensureBusinessContext();
-        bizguardDebug('AuthBootstrap.businessContext', { userId: context.user?.id || null, profileBusinessId: context.profile?.business_id || null, loadedBusinessId: context.business?.id || null, loadedBusinessName: context.business?.name || null });
+        // Super Admin authorization is resolved from the existing Supabase role
+        // architecture (`checkSuperAdminAccess`) before the business workspace
+        // is touched. The workspace context is still hydrated when it exists so
+        // the normal dashboard keeps working for Super Admins, but a missing
+        // workspace never blocks the Admin Portal.
+        const resolved = await resolveSignedInState(authUser);
+        bizguardDebug('AuthBootstrap.resolvedSession', { userId: resolved.user.id, isSuperAdmin: resolved.isSuperAdmin, loadedBusinessId: resolved.business?.id || null, loadedBusinessName: resolved.business?.name || null });
         if (!mounted) return;
 
-        if (!context.profile) {
-          throw new Error('BizGuard could not create or load your user profile.');
-        }
+        setUser(resolved.user);
 
-        const resolvedProfile = context.profile as Profile;
-        const effectiveProfile = resolvedProfile;
-
-        setUser(toAppUser(effectiveProfile));
-
-        if (context.business) {
-          const appBusiness = toAppBusiness(context.business);
-          setCurrentBusiness(appBusiness);
-          setBusinesses([appBusiness]);
+        if (resolved.business) {
+          setCurrentBusiness(resolved.business);
+          setBusinesses([resolved.business]);
         } else {
-          bizguardDebug('AuthBootstrap.noBusinessAfterRepair', { profileId: resolvedProfile.id, profileBusinessId: resolvedProfile.business_id || null });
+          bizguardDebug('AuthBootstrap.noBusinessAfterRepair', { profileId: resolved.user.id, profileBusinessId: resolved.user.businessId || null });
           setCurrentBusiness(null);
           setBusinesses([]);
         }

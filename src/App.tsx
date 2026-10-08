@@ -95,7 +95,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: Enter
  */
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAppStore();
-  const [decision, setDecision] = React.useState<'checking' | 'allowed' | 'denied' | 'signed-out'>('checking');
+  const [decision, setDecision] = React.useState<'checking' | 'password' | 'allowed' | 'denied' | 'signed-out'>('checking');
+  const [adminPassword, setAdminPassword] = React.useState('');
+  const [passwordError, setPasswordError] = React.useState('');
+  const [unlocking, setUnlocking] = React.useState(false);
+  const [sessionKey, setSessionKey] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let mounted = true;
@@ -104,17 +108,30 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         if (!mounted) return;
-        if (!sessionData?.session) {
+        const sessionUser = sessionData?.session?.user;
+        if (!sessionUser) {
           setDecision('signed-out');
           return;
         }
 
         const allowed = await checkSuperAdminAccess(user?.role);
-        bizguardDebug('AdminRoute.decision', { userId: sessionData.session.user?.id || null, allowed });
-        if (mounted) setDecision(allowed ? 'allowed' : 'denied');
+        bizguardDebug('AdminRoute.decision', { userId: sessionUser.id, allowed });
+        if (!mounted) return;
+
+        if (!allowed) {
+          setDecision('denied');
+          return;
+        }
+
+        const key = `bizguard-admin-unlocked:${sessionUser.id}`;
+        setSessionKey(key);
+        if (window.sessionStorage.getItem(key) === '1') {
+          setDecision('allowed');
+        } else {
+          setDecision('password');
+        }
       } catch (error) {
         bizguardDebug('AdminRoute.check.failed', { error: error instanceof Error ? error.message : String(error) });
-        // Fail closed: an unresolved authorization result never opens the portal.
         if (mounted) setDecision('denied');
       }
     };
@@ -126,9 +143,99 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     };
   }, [user?.role]);
 
+  const unlockAdmin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!adminPassword.trim() || unlocking) return;
+
+    setUnlocking(true);
+    setPasswordError('');
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const email = sessionData.session?.user?.email;
+      if (!email) throw new Error('Your authenticated email could not be resolved.');
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: adminPassword,
+      });
+
+      if (error) {
+        setPasswordError('Incorrect password. Admin Portal remains locked.');
+        return;
+      }
+
+      const stillSuperAdmin = await checkSuperAdminAccess('super_admin');
+      if (!stillSuperAdmin) {
+        setPasswordError('Admin authorization could not be verified. Portal remains locked.');
+        return;
+      }
+
+      if (sessionKey) window.sessionStorage.setItem(sessionKey, '1');
+      setAdminPassword('');
+      setDecision('allowed');
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : 'Password verification failed.');
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   if (decision === 'checking') return <LoadingScreen />;
   if (decision === 'signed-out') return <Navigate to="/login" replace />;
   if (decision === 'denied') return <Navigate to="/" replace />;
+
+  if (decision === 'password') {
+    return (
+      <div className="min-h-screen bg-slate-950 px-4 py-12">
+        <div className="mx-auto flex min-h-[70vh] max-w-md items-center justify-center">
+          <form onSubmit={unlockAdmin} className="w-full rounded-3xl border border-slate-800 bg-white p-8 shadow-2xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400 text-slate-950">
+              <ShieldCheck className="h-7 w-7" />
+            </div>
+            <h1 className="mt-6 text-center text-2xl font-black text-slate-950">Admin Portal Locked</h1>
+            <p className="mt-2 text-center text-sm text-slate-500">
+              Enter your Super Admin account password to unlock this portal.
+            </p>
+
+            <label className="mt-6 block text-sm font-bold text-slate-700" htmlFor="admin-portal-password">
+              Password
+            </label>
+            <input
+              id="admin-portal-password"
+              type="password"
+              autoComplete="current-password"
+              value={adminPassword}
+              onChange={(event) => setAdminPassword(event.target.value)}
+              placeholder="Enter your account password"
+              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+              disabled={unlocking}
+              autoFocus
+            />
+
+            {passwordError && (
+              <p className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                {passwordError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={unlocking || !adminPassword}
+              className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {unlocking ? 'Verifying…' : 'Unlock Admin Portal'}
+            </button>
+
+            <p className="mt-4 text-center text-xs text-slate-400">
+              Your password is verified by Supabase Auth and is not stored by BizGuard.
+            </p>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 };
 

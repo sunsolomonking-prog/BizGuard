@@ -2,9 +2,7 @@ import React from 'react';
 import { Bell, Search, Menu, Sun, Moon, User, LogOut, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
-import { Link, useLocation } from 'react-router-dom';
 import { signOut } from '../../lib/supabase';
-import { useSuperAdminAccess } from '../../lib/adminAccess';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -12,9 +10,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { theme, toggleTheme, alerts, markAlertAsRead, user, setUser } = useAppStore();
-  const location = useLocation();
-  const { isSuperAdmin } = useSuperAdminAccess(user?.role);
-  const isAdminPage = location.pathname === '/admin';
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showUserMenu, setShowUserMenu] = React.useState(false);
 
@@ -140,17 +135,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   <p className="text-slate-500 text-xs">{user?.email}</p>
                 </div>
                 <div className="p-1">
-                  {isSuperAdmin && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setShowUserMenu(false)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-amber-50 rounded-lg"
-                      aria-label="Open Admin Portal"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-amber-600" />
-                      Admin Portal
-                    </Link>
-                  )}
                   <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg">
                     <User className="w-4 h-4" />
                     Profile

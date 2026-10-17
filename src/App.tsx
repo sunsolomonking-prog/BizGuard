@@ -352,7 +352,7 @@ const LoginPage: React.FC = () => {
       toast.success('Signed in successfully');
       // Super Admins land on the existing Admin Portal; everyone else keeps the
       // existing dashboard entry point.
-      navigate(resolvedSession.isSuperAdmin ? '/admin' : '/', { replace: true });
+      navigate(resolvedSession.isSuperAdmin ? '/admin' : '/portal', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
@@ -530,6 +530,8 @@ const App: React.FC = () => {
 
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
+              {/* Dedicated User Portal entry reuses the existing business dashboard and permissions. */}
+              <Route path="portal" element={<Dashboard />} />
               <Route path="sales" element={<Sales />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="debtors" element={<Debtors />} />

@@ -350,9 +350,11 @@ const LoginPage: React.FC = () => {
       if (error) throw error;
       const resolvedSession = await loadSignedInProfile();
       toast.success('Signed in successfully');
-      // Super Admins land on the existing Admin Portal; everyone else keeps the
-      // existing dashboard entry point.
-      navigate(resolvedSession.isSuperAdmin ? '/admin' : '/', { replace: true });
+      // Every successful sign-in lands in the normal User Portal.
+      // Admin Portal is opened deliberately from the Super Admin-only link at
+      // the very end of the expanded "More tools" sidebar section. This avoids
+      // unexpectedly showing the separate Admin Portal password gate after login.
+      navigate('/portal', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
@@ -530,6 +532,8 @@ const App: React.FC = () => {
 
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
+              {/* Dedicated User Portal entry reuses the existing business dashboard and permissions. */}
+              <Route path="portal" element={<Dashboard />} />
               <Route path="sales" element={<Sales />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="debtors" element={<Debtors />} />

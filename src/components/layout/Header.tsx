@@ -2,9 +2,7 @@ import React from 'react';
 import { Bell, Search, Menu, Sun, Moon, User, LogOut, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
-import { Link, useLocation } from 'react-router-dom';
 import { signOut } from '../../lib/supabase';
-import { useSuperAdminAccess } from '../../lib/adminAccess';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -12,9 +10,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { theme, toggleTheme, alerts, markAlertAsRead, user, setUser } = useAppStore();
-  const location = useLocation();
-  const { isSuperAdmin } = useSuperAdminAccess(user?.role);
-  const isAdminPage = location.pathname === '/admin';
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showUserMenu, setShowUserMenu] = React.useState(false);
 
@@ -54,25 +49,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         {/* Right section */}
         <div className="flex items-center gap-2">
-          {/* Super Admin entry point: uses the existing /admin route and authorization. */}
-          {isSuperAdmin && (
-            <Link
-              to="/admin"
-              aria-label="Open Admin Portal"
-              className={cn(
-                'inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-black tracking-wide shadow-md transition-all duration-200',
-                'hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2',
-                isAdminPage
-                  ? 'border-amber-500 bg-amber-400 text-slate-950 shadow-amber-200'
-                  : 'border-amber-400 bg-slate-950 text-white shadow-amber-100 hover:bg-slate-800'
-              )}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span className="sm:hidden">ADMIN</span>
-              <span className="hidden sm:inline">ADMIN PORTAL</span>
-            </Link>
-          )}
-
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}

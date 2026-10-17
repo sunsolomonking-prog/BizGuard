@@ -21,7 +21,7 @@ const primary = [
 ];
 
 const secondary = [
-  { name: 'Global Market', href: '/settings#global-market-preferences', icon: Globe2 },
+  { name: 'Global Market', href: '/global-market', icon: Globe2 },
   { name: 'Analytics', href: '/analytics' },
   { name: 'Alerts', href: '/alerts' },
   { name: 'Predictions', href: '/predictions' },

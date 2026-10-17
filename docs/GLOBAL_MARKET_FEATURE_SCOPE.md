@@ -69,7 +69,7 @@ All changes must be additive and backward-compatible. Preserve existing BizGuard
 
 ## Current limitations
 
-The current PR contains initial locale/date/number/currency formatting helpers and browser-local regional display preferences. These are not yet a complete multi-currency transaction system. Live FX conversion, persistent account-level preferences, multi-currency inventory/sales, and market intelligence must not be represented as completed until implemented and tested.
+The current PR contains locale/date/number/currency formatting helpers, browser-local regional preferences, a Global Market workspace, a manual FX reference desk, a currency conversion calculator, and an explainable margin check. FX references are saved in browser storage scoped by business ID and are not synchronized to Supabase or other devices. These rates are user-supplied references, not live provider quotes. This is a usable preview foundation, not yet a complete multi-currency transaction system. Transaction-level multi-currency inventory/sales, persistent account-level preferences, live FX provider integration, and market intelligence based on real recorded transactions must not be represented as completed until implemented and tested.
 
 ## Out of scope
 

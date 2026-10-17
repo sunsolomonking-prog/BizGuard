@@ -88,14 +88,14 @@ export const GlobalMarket: React.FC = () => {
       quoteCurrency: quoteCurrency.toUpperCase(),
       quotePerBase: Number(rateValue),
       source: rateSource.trim(),
-      effectiveAt: new Date(effectiveAt).toISOString(),
+      effectiveAt,
     };
     const error = validateManualFxRate(candidate);
     if (error) {
       toast.error(error);
       return;
     }
-    const next: ManualFxRate = { ...candidate, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+    const next: ManualFxRate = { ...candidate, effectiveAt: new Date(candidate.effectiveAt).toISOString(), id: crypto.randomUUID(), createdAt: new Date().toISOString() };
     const updated = [next, ...rates].slice(0, 100);
     persistRates(updated);
     setSelectedRateId(next.id);

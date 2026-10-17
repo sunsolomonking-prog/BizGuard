@@ -350,11 +350,11 @@ const LoginPage: React.FC = () => {
       if (error) throw error;
       const resolvedSession = await loadSignedInProfile();
       toast.success('Signed in successfully');
-      // All authenticated users land in the normal BizGuard workspace after
-      // sign-in. Super Admins can open the separately protected Admin Portal
-      // from its explicit navigation entry; login must not unexpectedly show
-      // the secondary Admin Portal password gate.
-      navigate(window.location.hostname === 'admin.bizguard.fun' ? '/admin' : '/portal', { replace: true });
+      // Every successful sign-in lands in the normal User Portal.
+      // Admin Portal is opened deliberately from the Super Admin-only link at
+      // the very end of the expanded "More tools" sidebar section. This avoids
+      // unexpectedly showing the separate Admin Portal password gate after login.
+      navigate('/portal', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
@@ -530,7 +530,7 @@ const App: React.FC = () => {
               <Route index element={<AdminPortal />} />
             </Route>
 
-            <Route path="/" element={window.location.hostname === 'admin.bizguard.fun' ? <Navigate to="/admin" replace /> : <ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               {/* Dedicated User Portal entry reuses the existing business dashboard and permissions. */}
               <Route path="portal" element={<Dashboard />} />

@@ -354,7 +354,7 @@ const LoginPage: React.FC = () => {
       // sign-in. Super Admins can open the separately protected Admin Portal
       // from its explicit navigation entry; login must not unexpectedly show
       // the secondary Admin Portal password gate.
-      navigate('/portal', { replace: true });
+      navigate(window.location.hostname === 'admin.bizguard.fun' ? '/admin' : '/portal', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
@@ -530,7 +530,7 @@ const App: React.FC = () => {
               <Route index element={<AdminPortal />} />
             </Route>
 
-            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/" element={window.location.hostname === 'admin.bizguard.fun' ? <Navigate to="/admin" replace /> : <ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               {/* Dedicated User Portal entry reuses the existing business dashboard and permissions. */}
               <Route path="portal" element={<Dashboard />} />

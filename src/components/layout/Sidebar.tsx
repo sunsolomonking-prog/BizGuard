@@ -64,7 +64,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggle })
           </div>
 
           {!collapsed && <button onClick={() => setMoreOpen((value) => !value)} className="mt-4 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"><MoreHorizontal className="h-4.5 w-4.5" /><span className="flex-1 text-left">More tools</span><ChevronDown className={cn('h-4 w-4 transition', moreOpen && 'rotate-180')} /></button>}
-          {moreOpen && !collapsed && <div className="mt-1 space-y-0.5 rounded-xl bg-slate-50 p-1">{secondary.map((item) => <NavLink key={item.href} to={item.href} className={({ isActive }) => cn('block rounded-lg px-3 py-2 text-xs font-semibold', isActive ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900')}>{item.name}</NavLink>)}</div>}
+          {moreOpen && !collapsed && (
+            <div className="mt-1 space-y-0.5 rounded-xl bg-slate-50 p-1">
+              {secondary.map((item) => (
+                <NavLink key={item.href} to={item.href} className={({ isActive }) => cn('block rounded-lg px-3 py-2 text-xs font-semibold', isActive ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900')}>
+                  {item.name}
+                </NavLink>
+              ))}
+              {isSuperAdmin && (
+                <NavLink
+                  to="/admin"
+                  onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+                  className={({ isActive }) => cn(
+                    'mt-2 flex items-center gap-2 border-t border-slate-200 px-3 py-3 text-xs font-bold',
+                    isActive ? 'text-amber-700' : 'text-slate-600 hover:bg-amber-50 hover:text-amber-800'
+                  )}
+                  aria-label="Open Admin Portal"
+                >
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  <span>Admin Portal</span>
+                </NavLink>
+              )}
+            </div>
+          )}
         </nav>
 
         <div className="shrink-0 border-t border-slate-100 p-3">

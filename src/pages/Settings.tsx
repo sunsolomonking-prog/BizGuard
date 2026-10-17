@@ -137,6 +137,7 @@ export const Settings: React.FC = () => {
 
 
       <form
+        id="global-market-preferences"
         onSubmit={(event) => {
           event.preventDefault();
           const saved = saveGlobalMarketPreferences(globalPreferences);

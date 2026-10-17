@@ -54,6 +54,24 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         {/* Right section */}
         <div className="flex items-center gap-2">
+          {/* Visible Super Admin shortcut; authorization remains enforced by /admin. */}
+          {isSuperAdmin && (
+            <Link
+              to="/admin"
+              aria-label="Open Admin Portal"
+              className={cn(
+                'inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-black tracking-wide shadow-md transition-all',
+                isAdminPage
+                  ? 'border-amber-500 bg-amber-400 text-slate-950'
+                  : 'border-amber-400 bg-slate-950 text-white hover:bg-slate-800'
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">ADMIN PORTAL</span>
+              <span className="sm:hidden">ADMIN</span>
+            </Link>
+          )}
+
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
@@ -140,17 +158,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   <p className="text-slate-500 text-xs">{user?.email}</p>
                 </div>
                 <div className="p-1">
-                  {isSuperAdmin && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setShowUserMenu(false)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-amber-50 rounded-lg"
-                      aria-label="Open hidden Admin Portal"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-amber-600" />
-                      Admin Portal
-                    </Link>
-                  )}
                   <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg">
                     <User className="w-4 h-4" />
                     Profile

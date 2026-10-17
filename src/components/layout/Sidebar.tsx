@@ -11,7 +11,7 @@ import { useSuperAdminAccess } from '../../lib/adminAccess';
 interface SidebarProps { collapsed?: boolean; onToggle?: () => void; }
 
 const primary = [
-  { name: 'Home', href: '/', icon: LayoutDashboard },
+  { name: 'User Portal', href: '/portal', icon: LayoutDashboard },
   { name: 'Sales', href: '/sales', icon: ShoppingCart },
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Debtors', href: '/debtors', icon: Users },

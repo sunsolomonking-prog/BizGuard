@@ -63,6 +63,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggle })
             {primary.map((item) => <NavLink key={item.href} to={item.href} onClick={() => window.innerWidth < 1024 && toggleSidebar()} className={({ isActive }) => cn('flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition', isActive ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950', collapsed && 'lg:justify-center lg:px-2')}><item.icon className="h-4.5 w-4.5 shrink-0" />{!collapsed && <span className="flex-1">{item.name}</span>}{!collapsed && item.name === 'Alerts' && unreadAlerts > 0 && <span className="rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white">{unreadAlerts}</span>}</NavLink>)}
           </div>
 
+          {isSuperAdmin && (
+            <NavLink
+              to="/admin"
+              onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+              className={({ isActive }) => cn(
+                'mt-3 flex items-center gap-3 rounded-xl border-2 px-3 py-3 text-sm font-black tracking-wide shadow-md transition-all',
+                isActive
+                  ? 'border-amber-500 bg-amber-400 text-slate-950'
+                  : 'border-amber-400 bg-slate-950 text-white hover:bg-slate-800',
+                collapsed && 'lg:justify-center lg:px-2'
+              )}
+              aria-label="Open Admin Portal"
+            >
+              <ShieldCheck className="h-5 w-5 shrink-0" />
+              {!collapsed && <span className="flex-1">ADMIN PORTAL</span>}
+              {!collapsed && <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[9px] font-black text-slate-950">ADMIN</span>}
+            </NavLink>
+          )}
+
           {!collapsed && <button onClick={() => setMoreOpen((value) => !value)} className="mt-4 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"><MoreHorizontal className="h-4.5 w-4.5" /><span className="flex-1 text-left">More tools</span><ChevronDown className={cn('h-4 w-4 transition', moreOpen && 'rotate-180')} /></button>}
           {moreOpen && !collapsed && <div className="mt-1 space-y-0.5 rounded-xl bg-slate-50 p-1">{secondary.map((item) => <NavLink key={item.href} to={item.href} className={({ isActive }) => cn('block rounded-lg px-3 py-2 text-xs font-semibold', isActive ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900')}>{item.name}</NavLink>)}</div>}
         </nav>

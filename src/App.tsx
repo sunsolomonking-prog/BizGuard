@@ -350,9 +350,11 @@ const LoginPage: React.FC = () => {
       if (error) throw error;
       const resolvedSession = await loadSignedInProfile();
       toast.success('Signed in successfully');
-      // Super Admins land on the existing Admin Portal; everyone else keeps the
-      // existing dashboard entry point.
-      navigate(resolvedSession.isSuperAdmin ? '/admin' : '/portal', { replace: true });
+      // All authenticated users land in the normal BizGuard workspace after
+      // sign-in. Super Admins can open the separately protected Admin Portal
+      // from its explicit navigation entry; login must not unexpectedly show
+      // the secondary Admin Portal password gate.
+      navigate('/portal', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {

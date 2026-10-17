@@ -34,6 +34,7 @@ import {
   VoiceOperator,
   AdminPortal,
   AIEvolutionCenter,
+  GlobalMarket,
 } from './pages';
 import { useAppStore } from './store';
 import { Toaster, toast } from 'react-hot-toast';
@@ -557,6 +558,7 @@ const App: React.FC = () => {
               <Route path="analytics" element={<ProtectedRoute allowedRoles={['super_admin', 'business_owner', 'owner', 'manager']}><Analytics /></ProtectedRoute>} />
               <Route path="observability" element={<ProtectedRoute allowedRoles={['super_admin', 'business_owner', 'owner', 'manager']}><Observability /></ProtectedRoute>} />
               <Route path="market-intelligence" element={<MarketIntelligence />} />
+              <Route path="global-market" element={<GlobalMarket />} />
               <Route path="settings" element={<ProtectedRoute allowedRoles={['super_admin', 'business_owner', 'owner', 'manager']}><Settings /></ProtectedRoute>} />
               <Route path="ai-evolution" element={<AIEvolutionCenter />} />
             </Route>

@@ -24,6 +24,12 @@ export interface Database {
         Update: { id?: string; business_id?: string; base_currency?: string; quote_currency?: string; rate?: number; source?: string; rate_kind?: string; effective_at?: string; recorded_by?: string | null; created_at?: string; };
         Relationships: [];
       };
+      global_market_transactions: {
+        Row: { id: string; business_id: string; created_by: string; transaction_type: string; reference: string | null; counterparty: string | null; description: string; transaction_date: string; original_amount: number; original_currency: string; settlement_amount: number; settlement_currency: string; fx_rate: number; fx_rate_source: string; fx_rate_timestamp: string; fx_rate_id: string | null; status: string; created_at: string; updated_at: string; };
+        Insert: { id?: string; business_id: string; created_by: string; transaction_type: string; reference?: string | null; counterparty?: string | null; description: string; transaction_date?: string; original_amount: number; original_currency: string; settlement_amount: number; settlement_currency: string; fx_rate: number; fx_rate_source: string; fx_rate_timestamp: string; fx_rate_id?: string | null; status?: string; created_at?: string; updated_at?: string; };
+        Update: { id?: string; business_id?: string; created_by?: string; transaction_type?: string; reference?: string | null; counterparty?: string | null; description?: string; transaction_date?: string; original_amount?: number; original_currency?: string; settlement_amount?: number; settlement_currency?: string; fx_rate?: number; fx_rate_source?: string; fx_rate_timestamp?: string; fx_rate_id?: string | null; status?: string; created_at?: string; updated_at?: string; };
+        Relationships: [];
+      };
       global_market_audit_events: {
         Row: { id: string; business_id: string; actor_id: string | null; event_type: string; details: Json; created_at: string; };
         Insert: { id?: string; business_id: string; actor_id?: string | null; event_type: string; details?: Json; created_at?: string; };

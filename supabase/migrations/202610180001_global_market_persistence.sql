@@ -97,32 +97,40 @@ alter table public.sales add column if not exists reporting_currency text;
 alter table public.sales add column if not exists reporting_amount numeric(18,2);
 alter table public.sales add column if not exists fx_rate_id uuid references public.global_fx_rates(id) on delete set null;
 
-alter table public.sales add constraint sales_transaction_currency_format
-  check (transaction_currency is null or transaction_currency ~ '^[A-Z]{3}
-);
-alter table public.sales add constraint sales_settlement_currency_format
-  check (settlement_currency is null or settlement_currency ~ '^[A-Z]{3}
-);
-alter table public.sales add constraint sales_reporting_currency_format
-  check (reporting_currency is null or reporting_currency ~ '^[A-Z]{3}
-);
-alter table public.sales add constraint sales_fx_rate_positive
-  check (fx_rate is null or fx_rate > 0);
+do $constraints$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'sales_transaction_currency_format' and conrelid = 'public.sales'::regclass) then
+    alter table public.sales add constraint sales_transaction_currency_format
+      check (transaction_currency is null or transaction_currency ~ '^[A-Z]{3}$');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'sales_settlement_currency_format' and conrelid = 'public.sales'::regclass) then
+    alter table public.sales add constraint sales_settlement_currency_format
+      check (settlement_currency is null or settlement_currency ~ '^[A-Z]{3}$');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'sales_reporting_currency_format' and conrelid = 'public.sales'::regclass) then
+    alter table public.sales add constraint sales_reporting_currency_format
+      check (reporting_currency is null or reporting_currency ~ '^[A-Z]{3}$');
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'sales_fx_rate_positive' and conrelid = 'public.sales'::regclass) then
+    alter table public.sales add constraint sales_fx_rate_positive
+      check (fx_rate is null or fx_rate > 0);
+  end if;
+end;
+$constraints$;
 
 create or replace function public.stamp_global_market_sale_currency()
 returns trigger
 language plpgsql
 security invoker
 set search_path = public
-as $
+as $function$
 declare
   v_business_currency text;
 begin
   select upper(b.currency) into v_business_currency
   from public.businesses b where b.id = new.business_id;
 
-  if v_business_currency is null or v_business_currency !~ '^[A-Z]{3}
- then
+  if v_business_currency is null or v_business_currency !~ '^[A-Z]{3}$' then
     raise exception 'A valid business currency is required before recording a sale';
   end if;
 
@@ -147,7 +155,7 @@ begin
 
   return new;
 end;
-$;
+$function$;
 
 drop trigger if exists sales_stamp_global_market_currency on public.sales;
 create trigger sales_stamp_global_market_currency
@@ -170,11 +178,9 @@ create table if not exists public.global_market_transactions (
   description text not null check (length(trim(description)) between 1 and 500),
   transaction_date timestamptz not null default now(),
   original_amount numeric(18,2) not null check (original_amount >= 0),
-  original_currency text not null check (original_currency ~ '^[A-Z]{3}
-),
+  original_currency text not null check (original_currency ~ '^[A-Z]{3}$'),
   settlement_amount numeric(18,2) not null check (settlement_amount >= 0),
-  settlement_currency text not null check (settlement_currency ~ '^[A-Z]{3}
-),
+  settlement_currency text not null check (settlement_currency ~ '^[A-Z]{3}$'),
   fx_rate numeric(24,10) not null check (fx_rate > 0),
   fx_rate_source text not null check (length(trim(fx_rate_source)) between 1 and 240),
   fx_rate_timestamp timestamptz not null,
@@ -187,8 +193,19 @@ create table if not exists public.global_market_transactions (
     or original_currency <> settlement_currency
   )
 );
-alter table public.global_market_transactions add constraint global_market_transaction_settlement_matches_rate
-  check (abs(settlement_amount - round(original_amount * fx_rate, 2)) <= 0.02);
+do $constraints$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'global_market_transaction_settlement_matches_rate'
+      and conrelid = 'public.global_market_transactions'::regclass
+  ) then
+    alter table public.global_market_transactions
+      add constraint global_market_transaction_settlement_matches_rate
+      check (abs(settlement_amount - round(original_amount * fx_rate, 2)) <= 0.02);
+  end if;
+end;
+$constraints$;
 
 create index if not exists global_market_transactions_business_date_idx
  on public.global_market_transactions (business_id, transaction_date desc);

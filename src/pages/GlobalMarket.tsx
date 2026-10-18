@@ -20,24 +20,6 @@ const nowForInput = () => {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 };
-const storageKey = (businessId: string) => `bizguard.global-market.fx.v1.${businessId}`;
-
-const readRates = (businessId: string): ManualFxRate[] => {
-  try {
-    const raw = window.localStorage.getItem(storageKey(businessId));
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is ManualFxRate =>
-      !!item && typeof item === 'object' &&
-      typeof item.id === 'string' && typeof item.baseCurrency === 'string' &&
-      typeof item.quoteCurrency === 'string' && typeof item.quotePerBase === 'number' &&
-      typeof item.source === 'string' && typeof item.effectiveAt === 'string' && typeof item.createdAt === 'string'
-    );
-  } catch {
-    return [];
-  }
-};
 
 export const GlobalMarket: React.FC = () => {
   const { currentBusiness, user } = useAppStore();

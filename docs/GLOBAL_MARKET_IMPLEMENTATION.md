@@ -17,8 +17,9 @@ The Global Market workspace is additive and is registered at `/global-market`, l
 ## Required deployment sequence
 
 1. Review the draft PR and inspect the migration file `supabase/migrations/202610180001_global_market_persistence.sql`.
-2. Apply that migration to the correct Supabase project through the project's controlled migration process. Do not paste any service-role key into the browser or commit secrets.
-3. Verify the `public.user_can_access_business(uuid)` helper exists and behaves correctly for every supported business role; this migration relies on it for tenant isolation.
+2. Run the read-only preflight script `supabase/diagnostics/global_market_readiness_check.sql` in Supabase SQL Editor. It makes no changes and reports prerequisites and whether the migration objects exist.
+3. Do not apply the migration to production until it has been validated against a compatible test database/schema and the POS insert-trigger behavior has been tested. Do not paste any service-role key into the browser or commit secrets.
+4. Verify the `public.user_can_access_business(uuid)` helper exists and behaves correctly for every supported business role; this migration relies on it for tenant isolation.
 4. Deploy the feature branch as a Vercel Preview, not Production.
 5. Run the validation commands from the project root:
    - `npm run typecheck`

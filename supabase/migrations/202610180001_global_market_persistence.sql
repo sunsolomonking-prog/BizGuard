@@ -84,4 +84,77 @@ grant select, insert, update, delete on public.global_market_preferences to auth
 grant select, insert, delete on public.global_fx_rates to authenticated;
 grant select, insert on public.global_market_audit_events to authenticated;
 
+
+-- Additive transaction currency snapshots. Existing rows intentionally remain NULL
+-- because their historical currency cannot safely be inferred from today's settings.
+alter table public.sales add column if not exists transaction_currency text;
+alter table public.sales add column if not exists settlement_currency text;
+alter table public.sales add column if not exists settlement_amount numeric(18,2);
+alter table public.sales add column if not exists fx_rate numeric(24,10);
+alter table public.sales add column if not exists fx_rate_source text;
+alter table public.sales add column if not exists fx_rate_timestamp timestamptz;
+alter table public.sales add column if not exists reporting_currency text;
+alter table public.sales add column if not exists reporting_amount numeric(18,2);
+alter table public.sales add column if not exists fx_rate_id uuid references public.global_fx_rates(id) on delete set null;
+
+alter table public.sales add constraint sales_transaction_currency_format
+  check (transaction_currency is null or transaction_currency ~ '^[A-Z]{3}
+);
+alter table public.sales add constraint sales_settlement_currency_format
+  check (settlement_currency is null or settlement_currency ~ '^[A-Z]{3}
+);
+alter table public.sales add constraint sales_reporting_currency_format
+  check (reporting_currency is null or reporting_currency ~ '^[A-Z]{3}
+);
+alter table public.sales add constraint sales_fx_rate_positive
+  check (fx_rate is null or fx_rate > 0);
+
+create or replace function public.stamp_global_market_sale_currency()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $
+declare
+  v_business_currency text;
+begin
+  select upper(b.currency) into v_business_currency
+  from public.businesses b where b.id = new.business_id;
+
+  if v_business_currency is null or v_business_currency !~ '^[A-Z]{3}
+ then
+    raise exception 'A valid business currency is required before recording a sale';
+  end if;
+
+  -- The existing POS RPC remains the authoritative calculation/stock/debt path.
+  -- If it does not supply currency metadata, snapshot its operating currency.
+  if new.transaction_currency is null then
+    new.transaction_currency := v_business_currency;
+  end if;
+  if new.settlement_currency is null then
+    new.settlement_currency := new.transaction_currency;
+  end if;
+
+  if new.transaction_currency <> new.settlement_currency then
+    if new.fx_rate is null or new.fx_rate <= 0 or new.fx_rate_source is null
+       or length(trim(new.fx_rate_source)) = 0 or new.fx_rate_timestamp is null
+       or new.settlement_amount is null then
+      raise exception 'Cross-currency sales require a positive FX rate, source, timestamp, and settlement amount';
+    end if;
+  elsif new.settlement_amount is null then
+    new.settlement_amount := new.total;
+  end if;
+
+  return new;
+end;
+$;
+
+drop trigger if exists sales_stamp_global_market_currency on public.sales;
+create trigger sales_stamp_global_market_currency
+before insert on public.sales
+for each row execute function public.stamp_global_market_sale_currency();
+
+create index if not exists sales_business_currency_created_idx
+  on public.sales (business_id, transaction_currency, created_at desc);
+
 commit;

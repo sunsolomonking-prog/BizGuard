@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, Users, MessageSquare, FileText, CreditCard,
-  Settings, ShieldCheck, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Bell, X, Globe2
+  Settings, ShieldCheck, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, X, Globe2
 } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';

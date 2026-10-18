@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, ArrowLeftRight, Globe2, Plus, ShieldCheck, Trash2, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
+import type { Database } from '../lib/database.types';
 import { useAppStore } from '../store';
 import {
   GLOBAL_MARKET_CURRENCIES,
@@ -14,6 +15,7 @@ import {
 } from '../lib/globalMarketEngine';
 
 const currencyOptions = GLOBAL_MARKET_CURRENCIES as readonly { code: string; name: string }[];
+type GlobalMarketTransaction = Database['public']['Tables']['global_market_transactions']['Row'];
 const nowForInput = () => {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
@@ -61,6 +63,18 @@ export const GlobalMarket: React.FC = () => {
   const [reportTotal, setReportTotal] = React.useState<number | null>(null);
   const [reportExcluded, setReportExcluded] = React.useState(0);
   const [reportCurrencyCount, setReportCurrencyCount] = React.useState(0);
+  const [transactions, setTransactions] = React.useState<GlobalMarketTransaction[]>([]);
+  const [transactionType, setTransactionType] = React.useState<'sale' | 'purchase' | 'expense' | 'income' | 'refund'>('sale');
+  const [transactionDescription, setTransactionDescription] = React.useState('');
+  const [transactionReference, setTransactionReference] = React.useState('');
+  const [counterparty, setCounterparty] = React.useState('');
+  const [originalAmount, setOriginalAmount] = React.useState('');
+  const [originalCurrency, setOriginalCurrency] = React.useState(operatingCurrency);
+  const [settlementCurrency, setSettlementCurrency] = React.useState(operatingCurrency);
+  const [transactionRate, setTransactionRate] = React.useState('1');
+  const [transactionRateSource, setTransactionRateSource] = React.useState('Same-currency settlement');
+  const [transactionDate, setTransactionDate] = React.useState(nowForInput);
+  const [savingTransaction, setSavingTransaction] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -96,6 +110,21 @@ export const GlobalMarket: React.FC = () => {
     void loadWorkspace();
     return () => { cancelled = true; };
   }, [businessId, user?.id, operatingCurrency, currentBusiness?.timezone]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadTransactions = async () => {
+      if (!businessId) { setTransactions([]); return; }
+      const { data, error } = await supabase.from('global_market_transactions')
+        .select('*').eq('business_id', businessId)
+        .order('transaction_date', { ascending: false }).limit(200);
+      if (cancelled) return;
+      if (error) { toast.error(`Could not load global transaction register: ${error.message}`); return; }
+      setTransactions(data || []);
+    };
+    void loadTransactions();
+    return () => { cancelled = true; };
+  }, [businessId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -216,6 +245,40 @@ export const GlobalMarket: React.FC = () => {
   const convertedAmount = selectedRate && Number.isFinite(Number(amount)) && Number(amount) >= 0
     ? convertWithManualRate(Number(amount), selectedRate)
     : null;
+  const saveGlobalTransaction = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!businessId || !user?.id) { toast.error('Sign in and select a business workspace first.'); return; }
+    if (!transactionDescription.trim()) { toast.error('Add a clear transaction description.'); return; }
+    const amountValue = Number(originalAmount);
+    const rateValue = Number(transactionRate);
+    if (!Number.isFinite(amountValue) || amountValue < 0) { toast.error('Original amount must be a non-negative number.'); return; }
+    if (!Number.isFinite(rateValue) || rateValue <= 0) { toast.error('Exchange rate must be positive.'); return; }
+    if (originalCurrency === settlementCurrency && rateValue !== 1) { toast.error('For same-currency settlement, exchange rate must be 1.'); return; }
+    if (originalCurrency !== settlementCurrency && !transactionRateSource.trim()) { toast.error('Record the FX source for cross-currency settlement.'); return; }
+    const settlementValue = Number((amountValue * rateValue).toFixed(2));
+    const effectiveTimestamp = new Date(transactionDate);
+    if (!Number.isFinite(effectiveTimestamp.getTime())) { toast.error('Choose a valid transaction date.'); return; }
+    setSavingTransaction(true);
+    const { data, error } = await supabase.from('global_market_transactions').insert({
+      business_id: businessId, created_by: user.id, transaction_type: transactionType,
+      reference: transactionReference.trim() || null, counterparty: counterparty.trim() || null,
+      description: transactionDescription.trim(), transaction_date: effectiveTimestamp.toISOString(),
+      original_amount: Number(amountValue.toFixed(2)), original_currency: originalCurrency,
+      settlement_amount: settlementValue, settlement_currency: settlementCurrency,
+      fx_rate: rateValue, fx_rate_source: transactionRateSource.trim(),
+      fx_rate_timestamp: effectiveTimestamp.toISOString(), status: 'recorded',
+    }).select('*').single();
+    setSavingTransaction(false);
+    if (error || !data) { toast.error(`Could not save global transaction: ${error?.message || 'No saved record returned'}`); return; }
+    setTransactions(current => [data, ...current].slice(0, 200));
+    void supabase.from('global_market_audit_events').insert({
+      business_id: businessId, actor_id: user.id, event_type: 'report_exported',
+      details: { action: 'global_transaction_created', transaction_id: data.id, transaction_type: data.transaction_type, original_currency: data.original_currency, settlement_currency: data.settlement_currency },
+    });
+    setTransactionDescription(''); setTransactionReference(''); setCounterparty(''); setOriginalAmount('');
+    toast.success('Global transaction recorded separately from the existing POS ledger.');
+  };
+
   const insight = React.useMemo(() => {
     if (!revenue.trim() || !cost.trim()) return null;
     try {

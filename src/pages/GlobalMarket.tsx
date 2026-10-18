@@ -57,6 +57,7 @@ export const GlobalMarket: React.FC = () => {
   const [countryCode, setCountryCode] = React.useState('');
   const [timezone, setTimezone] = React.useState(currentBusiness?.timezone || '');
   const [savingPreferences, setSavingPreferences] = React.useState(false);
+  const [fetchingPublicRate, setFetchingPublicRate] = React.useState(false);
   const [reportTotal, setReportTotal] = React.useState<number | null>(null);
   const [reportExcluded, setReportExcluded] = React.useState(0);
   const [reportCurrencyCount, setReportCurrencyCount] = React.useState(0);
@@ -162,6 +163,30 @@ export const GlobalMarket: React.FC = () => {
     toast.success('FX reference saved securely for this business.');
   };
 
+  const fetchPublicRate = async () => {
+    if (baseCurrency === quoteCurrency) { toast.error('Choose two different currencies.'); return; }
+    setFetchingPublicRate(true);
+    try {
+      const response = await fetch(`https://open.er-api.com/v6/latest/${encodeURIComponent(baseCurrency)}`);
+      if (!response.ok) throw new Error(`Public FX provider returned HTTP ${response.status}`);
+      const payload: { result?: string; rates?: Record<string, number>; time_last_update_utc?: string; time_last_update_unix?: number } = await response.json();
+      const fetchedRate = payload.rates?.[quoteCurrency];
+      if (payload.result !== 'success' || typeof fetchedRate !== 'number' || !Number.isFinite(fetchedRate) || fetchedRate <= 0) {
+        throw new Error(`The public provider has no usable rate for ${baseCurrency}/${quoteCurrency}. Enter a verified rate manually instead.`);
+      }
+      setRateValue(String(fetchedRate));
+      setRateSource(`open.er-api.com public reference; updated ${payload.time_last_update_utc || 'timestamp unavailable'}`);
+      setEffectiveAt(payload.time_last_update_unix
+        ? (() => { const d = new Date(payload.time_last_update_unix! * 1000); return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0,16); })()
+        : nowForInput());
+      toast.success('Public reference rate loaded. Review the source and timestamp, then save it to your business.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not retrieve a public FX reference.');
+    } finally {
+      setFetchingPublicRate(false);
+    }
+  };
+
   const savePreferences = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!businessId || !user?.id) { toast.error('Sign in and select a business first.'); return; }
@@ -251,7 +276,7 @@ export const GlobalMarket: React.FC = () => {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="flex items-start gap-3">
             <div className="rounded-xl bg-cyan-50 p-3 text-cyan-700"><ArrowLeftRight className="h-5 w-5" /></div>
-            <div><h2 className="text-lg font-bold text-slate-900">FX reference desk</h2><p className="mt-1 text-sm text-slate-500">Record a rate you obtained from a source you trust. Rates are manual estimates, not live exchange quotes.</p></div>
+            <div><h2 className="text-lg font-bold text-slate-900">FX reference desk</h2><p className="mt-1 text-sm text-slate-500">Record a rate you obtained from a source you trust. You can fetch a public indicative rate or enter a rate you obtained from a trusted source. Public rates may be delayed and are not guaranteed settlement quotes.</p></div>
           </div>
           <form onSubmit={addRate} className="mt-5 space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -263,7 +288,10 @@ export const GlobalMarket: React.FC = () => {
               <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Rate source / reference</span><input className={inputClasses} value={rateSource} onChange={e => setRateSource(e.target.value)} placeholder="Bank, provider, invoice, or reference" required /></label>
               <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Effective at</span><input className={inputClasses} type="datetime-local" value={effectiveAt} onChange={e => setEffectiveAt(e.target.value)} required /></label>
             </div>
-            <button className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"><Plus className="h-4 w-4" /> Save FX reference</button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => void fetchPublicRate()} disabled={fetchingPublicRate} className="inline-flex items-center gap-2 rounded-xl border border-cyan-700 px-4 py-2.5 text-sm font-bold text-cyan-800 hover:bg-cyan-50 disabled:opacity-50">{fetchingPublicRate ? 'Fetching rate…' : 'Fetch public reference rate'}</button>
+              <button className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"><Plus className="h-4 w-4" /> Save FX reference</button>
+            </div>
           </form>
         </section>
 

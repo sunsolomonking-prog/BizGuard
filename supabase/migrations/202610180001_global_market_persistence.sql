@@ -37,7 +37,7 @@ create table if not exists public.global_market_audit_events (
   id uuid primary key default gen_random_uuid(),
   business_id uuid not null references public.businesses(id) on delete cascade,
   actor_id uuid references auth.users(id) on delete set null,
-  event_type text not null check (event_type in ('preference_updated','fx_rate_created','fx_rate_deleted','report_exported')),
+  event_type text not null check (event_type in ('preference_updated','fx_rate_created','fx_rate_deleted','report_exported','global_transaction_created')),
   details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );

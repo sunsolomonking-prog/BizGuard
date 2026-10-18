@@ -22,7 +22,6 @@ export interface VisionAnalysisResult {
 }
 
 const MAX_IMAGE_BYTES = 4.5 * 1024 * 1024;
-const ANALYSIS_TIMEOUT_MS = 28_000;
 
 const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();

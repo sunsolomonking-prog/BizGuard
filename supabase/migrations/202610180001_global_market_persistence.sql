@@ -157,4 +157,54 @@ for each row execute function public.stamp_global_market_sale_currency();
 create index if not exists sales_business_currency_created_idx
   on public.sales (business_id, transaction_currency, created_at desc);
 
+
+-- Separate global transaction register for cross-border deals that must not be
+-- silently mixed into the existing POS ledger. It is opt-in and additive.
+create table if not exists public.global_market_transactions (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references public.businesses(id) on delete cascade,
+  created_by uuid not null references auth.users(id) on delete restrict,
+  transaction_type text not null check (transaction_type in ('sale','purchase','expense','income','refund')),
+  reference text,
+  counterparty text,
+  description text not null check (length(trim(description)) between 1 and 500),
+  transaction_date timestamptz not null default now(),
+  original_amount numeric(18,2) not null check (original_amount >= 0),
+  original_currency text not null check (original_currency ~ '^[A-Z]{3}
+),
+  settlement_amount numeric(18,2) not null check (settlement_amount >= 0),
+  settlement_currency text not null check (settlement_currency ~ '^[A-Z]{3}
+),
+  fx_rate numeric(24,10) not null check (fx_rate > 0),
+  fx_rate_source text not null check (length(trim(fx_rate_source)) between 1 and 240),
+  fx_rate_timestamp timestamptz not null,
+  fx_rate_id uuid references public.global_fx_rates(id) on delete set null,
+  status text not null default 'recorded' check (status in ('recorded','pending','voided')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint global_market_transaction_rate_direction check (
+    (original_currency = settlement_currency and fx_rate = 1 and original_amount = settlement_amount)
+    or original_currency <> settlement_currency
+  )
+);
+create index if not exists global_market_transactions_business_date_idx
+ on public.global_market_transactions (business_id, transaction_date desc);
+create index if not exists global_market_transactions_business_type_idx
+ on public.global_market_transactions (business_id, transaction_type, status, transaction_date desc);
+alter table public.global_market_transactions enable row level security;
+drop policy if exists global_market_transactions_select on public.global_market_transactions;
+create policy global_market_transactions_select on public.global_market_transactions
+ for select to authenticated using (public.user_can_access_business(business_id));
+drop policy if exists global_market_transactions_insert on public.global_market_transactions;
+create policy global_market_transactions_insert on public.global_market_transactions
+ for insert to authenticated with check (created_by = auth.uid() and public.user_can_access_business(business_id));
+drop policy if exists global_market_transactions_update on public.global_market_transactions;
+create policy global_market_transactions_update on public.global_market_transactions
+ for update to authenticated using (created_by = auth.uid() and public.user_can_access_business(business_id))
+ with check (created_by = auth.uid() and public.user_can_access_business(business_id));
+drop policy if exists global_market_transactions_delete on public.global_market_transactions;
+create policy global_market_transactions_delete on public.global_market_transactions
+ for delete to authenticated using (created_by = auth.uid() and public.user_can_access_business(business_id));
+grant select, insert, update, delete on public.global_market_transactions to authenticated;
+
 commit;

@@ -254,7 +254,7 @@ export const GlobalMarket: React.FC = () => {
     if (!Number.isFinite(amountValue) || amountValue < 0) { toast.error('Original amount must be a non-negative number.'); return; }
     if (!Number.isFinite(rateValue) || rateValue <= 0) { toast.error('Exchange rate must be positive.'); return; }
     if (originalCurrency === settlementCurrency && rateValue !== 1) { toast.error('For same-currency settlement, exchange rate must be 1.'); return; }
-    if (originalCurrency !== settlementCurrency && !transactionRateSource.trim()) { toast.error('Record the FX source for cross-currency settlement.'); return; }
+    if (originalCurrency !== settlementCurrency && (!transactionRateSource.trim() || transactionRateSource === 'Same-currency settlement')) { toast.error('Record the FX source for cross-currency settlement.'); return; }
     const settlementValue = Number((amountValue * rateValue).toFixed(2));
     const effectiveTimestamp = new Date(transactionDate);
     if (!Number.isFinite(effectiveTimestamp.getTime())) { toast.error('Choose a valid transaction date.'); return; }
@@ -266,7 +266,7 @@ export const GlobalMarket: React.FC = () => {
       original_amount: Number(amountValue.toFixed(2)), original_currency: originalCurrency,
       settlement_amount: settlementValue, settlement_currency: settlementCurrency,
       fx_rate: rateValue, fx_rate_source: transactionRateSource.trim(),
-      fx_rate_timestamp: effectiveTimestamp.toISOString(), status: 'recorded',
+      fx_rate_timestamp: new Date().toISOString(), status: 'recorded',
     }).select('*').single();
     setSavingTransaction(false);
     if (error || !data) { toast.error(`Could not save global transaction: ${error?.message || 'No saved record returned'}`); return; }
@@ -333,6 +333,30 @@ export const GlobalMarket: React.FC = () => {
           <div className="rounded-xl border border-slate-200 p-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rate coverage</p><p className="mt-2 text-lg font-bold text-slate-900">{rates.length} saved FX references</p><p className="mt-2 text-xs leading-5 text-slate-500">Rate selection is auditable by source and effective timestamp. Verify bank fees and settlement terms separately.</p></div>
         </div>
         <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Important: historical sales created before the currency snapshot migration are intentionally not assigned a currency retroactively. The existing POS flow continues to record sales in the business operating currency; multi-currency checkout is not activated by changing this reporting preference.</p>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h2 className="text-lg font-bold text-slate-900">Cross-border transaction register</h2><p className="mt-1 text-sm text-slate-500">Record international sales, purchases, expenses, income, or refunds with original and settlement amounts. This separate register does not alter POS inventory, debtors, payments, or sales records.</p></div>
+          <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-800">Auditable ledger</span>
+        </div>
+        <form onSubmit={saveGlobalTransaction} className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Transaction type</span><select className={selectClasses} value={transactionType} onChange={e => setTransactionType(e.target.value as typeof transactionType)}><option value="sale">International sale</option><option value="purchase">Purchase</option><option value="expense">Expense</option><option value="income">Other income</option><option value="refund">Refund</option></select></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Transaction date</span><input className={inputClasses} type="datetime-local" value={transactionDate} onChange={e => setTransactionDate(e.target.value)} required /></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Reference / invoice (optional)</span><input className={inputClasses} value={transactionReference} onChange={e => setTransactionReference(e.target.value)} placeholder="Invoice or external reference" /></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Counterparty (optional)</span><input className={inputClasses} value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder="Customer, supplier, partner" /></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Original amount</span><input className={inputClasses} type="number" min="0" step="0.01" value={originalAmount} onChange={e => setOriginalAmount(e.target.value)} placeholder="0.00" required /></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Original currency</span><select className={selectClasses} value={originalCurrency} onChange={e => setOriginalCurrency(e.target.value)}>{currencyOptions.map(item => <option key={item.code} value={item.code}>{item.code} — {item.name}</option>)}</select></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Settlement currency</span><select className={selectClasses} value={settlementCurrency} onChange={e => setSettlementCurrency(e.target.value)}>{currencyOptions.map(item => <option key={item.code} value={item.code}>{item.code} — {item.name}</option>)}</select></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Settlement per 1 original unit</span><input className={inputClasses} type="number" min="0.00000001" step="any" value={transactionRate} onChange={e => setTransactionRate(e.target.value)} required /><span className="text-xs text-slate-400">Use 1 when both currencies are the same.</span></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">FX source / evidence</span><input className={inputClasses} value={transactionRateSource} onChange={e => setTransactionRateSource(e.target.value)} placeholder="Saved rate, bank quote, invoice, etc." required /></label>
+          <label className="space-y-1.5 md:col-span-3"><span className="text-xs font-semibold text-slate-600">Description</span><input className={inputClasses} value={transactionDescription} onChange={e => setTransactionDescription(e.target.value)} placeholder="What was bought, sold, paid, or received?" maxLength={500} required /></label>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4 md:col-span-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated settlement</p><p className="mt-1 text-xl font-black text-slate-900">{Number.isFinite(Number(originalAmount)) && Number(originalAmount) >= 0 && Number.isFinite(Number(transactionRate)) && Number(transactionRate) > 0 ? formatGlobalCurrency(Number((Number(originalAmount) * Number(transactionRate)).toFixed(2)), settlementCurrency, locale) : '—'}</p><p className="mt-1 text-xs text-slate-500">A record only; this does not initiate or confirm a payment.</p></div><button disabled={savingTransaction} className="rounded-xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white hover:bg-cyan-800 disabled:opacity-50">{savingTransaction ? 'Recording…' : 'Record global transaction'}</button></div>
+        </form>
+        <div className="mt-6 overflow-x-auto">
+          <h3 className="mb-3 font-bold text-slate-900">Recent global transactions</h3>
+          {transactions.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">No global transactions recorded yet.</p> : <table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="py-3 pr-4">Date / description</th><th className="py-3 pr-4">Type</th><th className="py-3 pr-4">Original amount</th><th className="py-3 pr-4">Settlement</th><th className="py-3 pr-4">FX source</th></tr></thead><tbody>{transactions.slice(0, 12).map(item => <tr key={item.id} className="border-b border-slate-100 align-top"><td className="py-3 pr-4"><p className="font-semibold text-slate-900">{item.description}</p><p className="mt-1 text-xs text-slate-500">{new Date(item.transaction_date).toLocaleString(locale)}{item.counterparty ? ` · ${item.counterparty}` : ''}</p></td><td className="py-3 pr-4 capitalize">{item.transaction_type}</td><td className="py-3 pr-4 font-semibold">{formatGlobalCurrency(Number(item.original_amount), item.original_currency, locale)}</td><td className="py-3 pr-4 font-semibold">{formatGlobalCurrency(Number(item.settlement_amount), item.settlement_currency, locale)}<p className="mt-1 text-xs font-normal text-slate-500">Rate {Number(item.fx_rate).toLocaleString(locale)}</p></td><td className="py-3 pr-4 text-xs text-slate-600">{item.fx_rate_source}<p className="mt-1 text-slate-400">{new Date(item.fx_rate_timestamp).toLocaleString(locale)}</p></td></tr>)}</tbody></table>}
+        </div>
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

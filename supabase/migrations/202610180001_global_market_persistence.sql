@@ -135,7 +135,7 @@ begin
     new.settlement_currency := new.transaction_currency;
   end if;
 
-  if new.transaction_currency <> new.settlement_currency then
+  if new.transaction_currency <> v_business_currency or new.transaction_currency <> new.settlement_currency then
     if new.fx_rate is null or new.fx_rate <= 0 or new.fx_rate_source is null
        or length(trim(new.fx_rate_source)) = 0 or new.fx_rate_timestamp is null
        or new.settlement_amount is null then
@@ -187,6 +187,9 @@ create table if not exists public.global_market_transactions (
     or original_currency <> settlement_currency
   )
 );
+alter table public.global_market_transactions add constraint global_market_transaction_settlement_matches_rate
+  check (abs(settlement_amount - round(original_amount * fx_rate, 2)) <= 0.02);
+
 create index if not exists global_market_transactions_business_date_idx
  on public.global_market_transactions (business_id, transaction_date desc);
 create index if not exists global_market_transactions_business_type_idx

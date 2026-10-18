@@ -5,6 +5,7 @@ import { useAppStore } from '../store';
 import { supabase } from '../lib/supabase';
 import { toAppBusiness } from '../lib/business';
 import { roleLabel } from '../lib/rbac';
+import { getGlobalMarketPreferences, saveGlobalMarketPreferences, type GlobalMarketPreferences, BIZGUARD_SUPPORTED_LOCALES } from '../lib/globalization';
 
 interface BusinessForm {
   name: string;
@@ -28,6 +29,7 @@ export const Settings: React.FC = () => {
   const [profileForm, setProfileForm] = React.useState<ProfileForm>({ name: '', email: '', role: '' });
   const [isSavingBusiness, setIsSavingBusiness] = React.useState(false);
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  const [globalPreferences, setGlobalPreferences] = React.useState<GlobalMarketPreferences>(() => getGlobalMarketPreferences());
 
   React.useEffect(() => {
     if (currentBusiness) {
@@ -131,6 +133,90 @@ export const Settings: React.FC = () => {
           <label className="space-y-2"><span className="text-sm font-medium text-slate-700">Role</span><input value={roleLabel(profileForm.role)} disabled className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" /></label>
         </div>
         <div className="flex justify-end border-t border-slate-200 px-6 py-4"><button disabled={isSavingProfile} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white disabled:opacity-50">{isSavingProfile ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save Profile</button></div>
+      </form>
+
+
+      <form
+        id="global-market-preferences"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const saved = saveGlobalMarketPreferences(globalPreferences);
+          setGlobalPreferences(saved);
+          toast.success('Your regional display preferences were saved on this device.');
+        }}
+        className="overflow-hidden rounded-xl border border-cyan-200 bg-white shadow-sm"
+      >
+        <div className="border-b border-cyan-100 bg-cyan-50 px-6 py-4">
+          <h2 className="font-semibold text-slate-800">Global Market Preferences</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Choose how BizGuard should display regional information. These preferences do not change recorded transaction amounts or payment settlement currency.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Preferred display currency</span>
+            <select
+              value={globalPreferences.reportingCurrency || 'NGN'}
+              onChange={(event) => setGlobalPreferences({ ...globalPreferences, reportingCurrency: event.target.value })}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              <option value="NGN">NGN — Nigerian Naira</option>
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              <option value="NOK">NOK — Norwegian Krone</option>
+              <option value="CAD">CAD — Canadian Dollar</option>
+              <option value="AUD">AUD — Australian Dollar</option>
+              <option value="INR">INR — Indian Rupee</option>
+              <option value="KES">KES — Kenyan Shilling</option>
+              <option value="GHS">GHS — Ghanaian Cedi</option>
+              <option value="ZAR">ZAR — South African Rand</option>
+              <option value="JPY">JPY — Japanese Yen</option>
+              <option value="CNY">CNY — Chinese Yuan</option>
+              <option value="CHF">CHF — Swiss Franc</option>
+              <option value="AED">AED — UAE Dirham</option>
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Display language</span>
+            <select
+              value={globalPreferences.locale}
+              onChange={(event) => setGlobalPreferences({ ...globalPreferences, locale: event.target.value as GlobalMarketPreferences['locale'] })}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              {BIZGUARD_SUPPORTED_LOCALES.map((locale) => (
+                <option key={locale} value={locale}>
+                  {{ en: 'English', fr: 'Français', pt: 'Português', es: 'Español', ar: 'العربية' }[locale]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Country or market code (optional)</span>
+            <input
+              value={globalPreferences.countryCode || ''}
+              onChange={(event) => setGlobalPreferences({ ...globalPreferences, countryCode: event.target.value.toUpperCase().slice(0, 2) })}
+              placeholder="e.g. NG, GB, US"
+              maxLength={2}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Time zone (optional)</span>
+            <input
+              value={globalPreferences.timezone || ''}
+              onChange={(event) => setGlobalPreferences({ ...globalPreferences, timezone: event.target.value })}
+              placeholder="e.g. Africa/Lagos or Europe/Oslo"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2"
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-cyan-100 px-6 py-4">
+          <p className="max-w-2xl text-xs text-slate-500">
+            This first increment saves display preferences in this browser only. It does not perform foreign-exchange conversion or change the business operating currency.
+          </p>
+          <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-800">Save Regional Preferences</button>
+        </div>
       </form>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

@@ -30,3 +30,4 @@ export { OpportunityMarketplace } from './OpportunityMarketplace';
 export { AdminPortal } from './AdminPortal';
 
 export { AIEvolutionCenter } from './AIEvolutionCenter';
+export { GlobalMarket } from './GlobalMarket';

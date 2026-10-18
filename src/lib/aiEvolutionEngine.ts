@@ -136,7 +136,7 @@ export async function loadEvolutionState(businessId: string): Promise<EvolutionS
 }
 
 export async function persistEvolutionState(businessId: string, state: EvolutionState) {
-  await supabase.rpc('upsert_business_memory', { target_business_id: businessId, target_memory_key: 'ai:evolution_state', target_memory_value: state, target_source: 'ai_evolution_engine', target_confidence: state.confidenceScore / 100 });
+  await supabase.rpc('upsert_business_memory', { target_business_id: businessId, target_memory_key: 'ai:evolution_state', target_memory_value: JSON.parse(JSON.stringify(state)) as import('./database.types').Json, target_source: 'ai_evolution_engine', target_confidence: state.confidenceScore / 100 });
 }
 
 export async function loadEvolutionDashboard(businessId: string) {

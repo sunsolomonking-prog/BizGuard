@@ -31,9 +31,9 @@ export interface Database {
         Relationships: [];
       };
       global_market_audit_events: {
-        Row: { id: string; business_id: string; actor_id: string | null; event_type: string; details: Json; created_at: string; };
-        Insert: { id?: string; business_id: string; actor_id?: string | null; event_type: string; details?: Json; created_at?: string; };
-        Update: { id?: string; business_id?: string; actor_id?: string | null; event_type?: string; details?: Json; created_at?: string; };
+        Row: { id: string; business_id: string; actor_id: string | null; event_type: 'preference_updated' | 'fx_rate_created' | 'fx_rate_deleted' | 'report_exported' | 'global_transaction_created'; details: Json; created_at: string; };
+        Insert: { id?: string; business_id: string; actor_id?: string | null; event_type: 'preference_updated' | 'fx_rate_created' | 'fx_rate_deleted' | 'report_exported' | 'global_transaction_created'; details?: Json; created_at?: string; };
+        Update: { id?: string; business_id?: string; actor_id?: string | null; event_type?: 'preference_updated' | 'fx_rate_created' | 'fx_rate_deleted' | 'report_exported' | 'global_transaction_created'; details?: Json; created_at?: string; };
         Relationships: [];
       };
       system_health_events: {

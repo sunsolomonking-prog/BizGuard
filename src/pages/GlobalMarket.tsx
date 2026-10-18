@@ -272,7 +272,7 @@ export const GlobalMarket: React.FC = () => {
     if (error || !data) { toast.error(`Could not save global transaction: ${error?.message || 'No saved record returned'}`); return; }
     setTransactions(current => [data, ...current].slice(0, 200));
     void supabase.from('global_market_audit_events').insert({
-      business_id: businessId, actor_id: user.id, event_type: 'report_exported',
+      business_id: businessId, actor_id: user.id, event_type: 'global_transaction_created',
       details: { action: 'global_transaction_created', transaction_id: data.id, transaction_type: data.transaction_type, original_currency: data.original_currency, settlement_currency: data.settlement_currency },
     });
     setTransactionDescription(''); setTransactionReference(''); setCounterparty(''); setOriginalAmount('');
@@ -324,7 +324,7 @@ export const GlobalMarket: React.FC = () => {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div><h2 className="text-lg font-bold text-slate-900">Global sales overview</h2><p className="mt-1 text-sm text-slate-500">Up to 5,000 recent sales. Converts using the latest saved rate effective on or before each sale date.</p></div>
+          <div><h2 className="text-lg font-bold text-slate-900">POS sales overview</h2><p className="mt-1 text-sm text-slate-500">Up to 5,000 recent POS sales, separate from the cross-border register above. Converts using a saved rate effective on or before each sale date.</p></div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{reportCurrencyCount} recorded currency {reportCurrencyCount === 1 ? 'type' : 'types'}</span>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">

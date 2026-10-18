@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { useAppStore } from '../store';
 import { PLAN_DEFINITIONS } from '../lib/subscriptions';
+import type { Database } from '../lib/database.types';
 
 interface AdminUser {
   id: string;
@@ -41,7 +42,7 @@ export const AdminPortal: React.FC = () => {
   // supabase.rpc loses its `this` context and causes "Cannot read properties
   // of undefined (reading 'rest')" in production.
   const adminRpc = React.useCallback(
-    (functionName: string, args?: Record<string, unknown>) => supabase.rpc(functionName, args),
+    (functionName: keyof Database['public']['Functions'], args?: Record<string, unknown>) => supabase.rpc(functionName, args as never),
     [],
   );
   const [users, setUsers] = React.useState<AdminUser[]>([]);

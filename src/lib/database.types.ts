@@ -12,6 +12,24 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      global_market_preferences: {
+        Row: { id: string; business_id: string; user_id: string; reporting_currency: string; locale: string; country_code: string | null; timezone: string | null; created_at: string; updated_at: string; };
+        Insert: { id?: string; business_id: string; user_id: string; reporting_currency?: string; locale?: string; country_code?: string | null; timezone?: string | null; created_at?: string; updated_at?: string; };
+        Update: { id?: string; business_id?: string; user_id?: string; reporting_currency?: string; locale?: string; country_code?: string | null; timezone?: string | null; created_at?: string; updated_at?: string; };
+        Relationships: [];
+      };
+      global_fx_rates: {
+        Row: { id: string; business_id: string; base_currency: string; quote_currency: string; rate: number; source: string; rate_kind: string; effective_at: string; recorded_by: string | null; created_at: string; };
+        Insert: { id?: string; business_id: string; base_currency: string; quote_currency: string; rate: number; source: string; rate_kind?: string; effective_at: string; recorded_by?: string | null; created_at?: string; };
+        Update: { id?: string; business_id?: string; base_currency?: string; quote_currency?: string; rate?: number; source?: string; rate_kind?: string; effective_at?: string; recorded_by?: string | null; created_at?: string; };
+        Relationships: [];
+      };
+      global_market_audit_events: {
+        Row: { id: string; business_id: string; actor_id: string | null; event_type: string; details: Json; created_at: string; };
+        Insert: { id?: string; business_id: string; actor_id?: string | null; event_type: string; details?: Json; created_at?: string; };
+        Update: { id?: string; business_id?: string; actor_id?: string | null; event_type?: string; details?: Json; created_at?: string; };
+        Relationships: [];
+      };
       system_health_events: {
         Row: { id: string; business_id: string | null; service: string; status: string; latency_ms: number | null; message: string | null; metadata: Json; created_at: string; };
         Insert: { id?: string; business_id?: string | null; service: string; status: string; latency_ms?: number | null; message?: string | null; metadata?: Json; created_at?: string; };
@@ -329,6 +347,15 @@ export interface Database {
           status: string;
           created_at: string;
           created_by: string | null;
+          transaction_currency: string | null;
+          settlement_currency: string | null;
+          settlement_amount: number | null;
+          fx_rate: number | null;
+          fx_rate_source: string | null;
+          fx_rate_timestamp: string | null;
+          reporting_currency: string | null;
+          reporting_amount: number | null;
+          fx_rate_id: string | null;
         };
         Insert: {
           id?: string;
@@ -343,6 +370,15 @@ export interface Database {
           status: string;
           created_at?: string;
           created_by: string | null;
+          transaction_currency?: string | null;
+          settlement_currency?: string | null;
+          settlement_amount?: number | null;
+          fx_rate?: number | null;
+          fx_rate_source?: string | null;
+          fx_rate_timestamp?: string | null;
+          reporting_currency?: string | null;
+          reporting_amount?: number | null;
+          fx_rate_id?: string | null;
         };
         Update: {
           id?: string;
@@ -357,6 +393,15 @@ export interface Database {
           status?: string;
           created_at?: string;
           created_by?: string | null;
+          transaction_currency?: string | null;
+          settlement_currency?: string | null;
+          settlement_amount?: number | null;
+          fx_rate?: number | null;
+          fx_rate_source?: string | null;
+          fx_rate_timestamp?: string | null;
+          reporting_currency?: string | null;
+          reporting_amount?: number | null;
+          fx_rate_id?: string | null;
         };
         Relationships: [];
       };

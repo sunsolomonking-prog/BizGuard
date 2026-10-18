@@ -220,6 +220,33 @@ export const GlobalMarket: React.FC = () => {
         </div>
       </header>
 
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-violet-50 p-3 text-violet-700"><Globe2 className="h-5 w-5" /></div>
+          <div><h2 className="text-lg font-bold text-slate-900">Your global preferences</h2><p className="mt-1 text-sm text-slate-500">Saved to your signed-in account for this business. The reporting currency changes display and reporting only; it does not change recorded transactions or payment settlement.</p></div>
+        </div>
+        <form onSubmit={savePreferences} className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Reporting currency</span><select className={selectClasses} value={reportingCurrency} onChange={e => setReportingCurrency(e.target.value)}>{currencyOptions.map(item => <option key={item.code} value={item.code}>{item.code} — {item.name}</option>)}</select></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Language</span><select className={selectClasses} value={locale} onChange={e => setLocale(e.target.value)}><option value="en">English</option><option value="fr">Français</option><option value="pt">Português</option><option value="es">Español</option><option value="ar">العربية</option></select></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Country code</span><input className={inputClasses} value={countryCode} onChange={e => setCountryCode(e.target.value.toUpperCase().slice(0,2))} placeholder="NG" pattern="[A-Za-z]{2}" maxLength={2} /></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">IANA timezone</span><input className={inputClasses} value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="Africa/Lagos" /></label>
+          <div className="flex items-end"><button disabled={savingPreferences} className="w-full rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-800 disabled:opacity-50">{savingPreferences ? 'Saving…' : 'Save preferences'}</button></div>
+        </form>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div><h2 className="text-lg font-bold text-slate-900">Global sales overview</h2><p className="mt-1 text-sm text-slate-500">Up to 5,000 recent sales. Converts using the latest saved rate effective on or before each sale date.</p></div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{reportCurrencyCount} recorded currency {reportCurrencyCount === 1 ? 'type' : 'types'}</span>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-xl bg-slate-950 p-5 text-white"><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Convertible recorded sales</p><p className="mt-2 break-words text-3xl font-black">{reportTotal === null ? '—' : formatGlobalCurrency(reportTotal, reportingCurrency, locale)}</p><p className="mt-2 text-xs text-slate-300">Reporting currency: {reportingCurrency}</p></div>
+          <div className="rounded-xl border border-slate-200 p-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Excluded from total</p><p className="mt-2 text-3xl font-black text-slate-900">{reportExcluded}</p><p className="mt-2 text-xs leading-5 text-slate-500">Historical rows without a currency snapshot or rows without a suitable dated FX reference are excluded rather than guessed.</p></div>
+          <div className="rounded-xl border border-slate-200 p-5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rate coverage</p><p className="mt-2 text-lg font-bold text-slate-900">{rates.length} saved FX references</p><p className="mt-2 text-xs leading-5 text-slate-500">Rate selection is auditable by source and effective timestamp. Verify bank fees and settlement terms separately.</p></div>
+        </div>
+        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Important: historical sales created before the currency snapshot migration are intentionally not assigned a currency retroactively. The existing POS flow continues to record sales in the business operating currency; multi-currency checkout is not activated by changing this reporting preference.</p>
+      </section>
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
           <div className="flex items-start gap-3">

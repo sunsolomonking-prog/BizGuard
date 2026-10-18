@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, ArrowLeftRight, Globe2, Plus, ShieldCheck, Trash2, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '../lib/supabase';
 import { useAppStore } from '../store';
 import {
   GLOBAL_MARKET_CURRENCIES,
@@ -37,7 +38,7 @@ const readRates = (businessId: string): ManualFxRate[] => {
 };
 
 export const GlobalMarket: React.FC = () => {
-  const { currentBusiness } = useAppStore();
+  const { currentBusiness, user } = useAppStore();
   const businessId = currentBusiness?.id;
   const operatingCurrency = currentBusiness?.currency || 'NGN';
   const [rates, setRates] = React.useState<ManualFxRate[]>([]);
@@ -51,58 +52,139 @@ export const GlobalMarket: React.FC = () => {
   const [revenue, setRevenue] = React.useState('');
   const [cost, setCost] = React.useState('');
   const [insightCurrency, setInsightCurrency] = React.useState(operatingCurrency);
+  const [reportingCurrency, setReportingCurrency] = React.useState(operatingCurrency);
+  const [locale, setLocale] = React.useState('en');
+  const [countryCode, setCountryCode] = React.useState('');
+  const [timezone, setTimezone] = React.useState(currentBusiness?.timezone || '');
+  const [savingPreferences, setSavingPreferences] = React.useState(false);
+  const [reportTotal, setReportTotal] = React.useState<number | null>(null);
+  const [reportExcluded, setReportExcluded] = React.useState(0);
+  const [reportCurrencyCount, setReportCurrencyCount] = React.useState(0);
 
   React.useEffect(() => {
-    if (!businessId) {
-      setRates([]);
-      return;
-    }
-    const stored = readRates(businessId);
-    setRates(stored);
-    setSelectedRateId(stored[0]?.id || '');
-  }, [businessId]);
+    let cancelled = false;
+    const loadWorkspace = async () => {
+      if (!businessId || !user?.id) { setRates([]); return; }
+      const [rateResult, preferenceResult] = await Promise.all([
+        supabase.from('global_fx_rates').select('*').eq('business_id', businessId).order('effective_at', { ascending: false }).limit(100),
+        supabase.from('global_market_preferences').select('*').eq('business_id', businessId).eq('user_id', user.id).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      if (rateResult.error) toast.error(`Could not load saved FX rates: ${rateResult.error.message}`);
+      else {
+        const loaded: ManualFxRate[] = (rateResult.data || []).map(row => ({
+          id: row.id, baseCurrency: row.base_currency, quoteCurrency: row.quote_currency,
+          quotePerBase: Number(row.rate), source: row.source, effectiveAt: row.effective_at, createdAt: row.created_at,
+        }));
+        setRates(loaded);
+        setSelectedRateId(current => loaded.some(rate => rate.id === current) ? current : (loaded[0]?.id || ''));
+      }
+      if (preferenceResult.error) toast.error(`Could not load global preferences: ${preferenceResult.error.message}`);
+      else if (preferenceResult.data) {
+        setReportingCurrency(preferenceResult.data.reporting_currency);
+        setInsightCurrency(preferenceResult.data.reporting_currency);
+        setLocale(preferenceResult.data.locale);
+        setCountryCode(preferenceResult.data.country_code || '');
+        setTimezone(preferenceResult.data.timezone || '');
+      } else {
+        setReportingCurrency(operatingCurrency);
+        setInsightCurrency(operatingCurrency);
+        setTimezone(currentBusiness?.timezone || '');
+      }
+    };
+    void loadWorkspace();
+    return () => { cancelled = true; };
+  }, [businessId, user?.id, operatingCurrency, currentBusiness?.timezone]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadReport = async () => {
+      if (!businessId) { setReportTotal(null); setReportExcluded(0); setReportCurrencyCount(0); return; }
+      const { data, error } = await supabase.from('sales')
+        .select('id,total,created_at,transaction_currency')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (cancelled) return;
+      if (error) { toast.error(`Could not load global sales report: ${error.message}`); return; }
+      const rows = data || [];
+      const currencies = new Set(rows.map(row => row.transaction_currency).filter((value): value is string => !!value));
+      let converted = 0;
+      let excluded = 0;
+      for (const row of rows) {
+        const sourceCurrency = row.transaction_currency;
+        const amountValue = Number(row.total);
+        if (!sourceCurrency || !Number.isFinite(amountValue)) { excluded += 1; continue; }
+        if (sourceCurrency === reportingCurrency) { converted += amountValue; continue; }
+        const saleTime = new Date(row.created_at).getTime();
+        const matching = rates
+          .filter(rate => new Date(rate.effectiveAt).getTime() <= saleTime &&
+            ((rate.baseCurrency === sourceCurrency && rate.quoteCurrency === reportingCurrency) ||
+             (rate.baseCurrency === reportingCurrency && rate.quoteCurrency === sourceCurrency)))
+          .sort((a,b) => new Date(b.effectiveAt).getTime() - new Date(a.effectiveAt).getTime())[0];
+        if (!matching) { excluded += 1; continue; }
+        converted += matching.baseCurrency === sourceCurrency
+          ? amountValue * matching.quotePerBase
+          : amountValue / matching.quotePerBase;
+      }
+      setReportTotal(converted);
+      setReportExcluded(excluded);
+      setReportCurrencyCount(currencies.size);
+    };
+    void loadReport();
+    return () => { cancelled = true; };
+  }, [businessId, reportingCurrency, rates]);
+
 
   React.useEffect(() => {
     setBaseCurrency(operatingCurrency);
     setInsightCurrency(operatingCurrency);
   }, [operatingCurrency]);
 
-  const persistRates = (next: ManualFxRate[]) => {
-    setRates(next);
-    if (!businessId) return;
-    try {
-      window.localStorage.setItem(storageKey(businessId), JSON.stringify(next));
-    } catch {
-      toast.error('Browser storage is unavailable. Export or record these rates elsewhere before leaving this page.');
-    }
+  const persistRates = (next: ManualFxRate[]) => setRates(next);
+
+  const addRate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!businessId || !user?.id) { toast.error('Sign in and select a business workspace first.'); return; }
+    const candidate = { baseCurrency: baseCurrency.toUpperCase(), quoteCurrency: quoteCurrency.toUpperCase(), quotePerBase: Number(rateValue), source: rateSource.trim(), effectiveAt };
+    const validationError = validateManualFxRate(candidate);
+    if (validationError) { toast.error(validationError); return; }
+    const { data, error } = await supabase.from('global_fx_rates').insert({
+      business_id: businessId, base_currency: candidate.baseCurrency, quote_currency: candidate.quoteCurrency,
+      rate: candidate.quotePerBase, source: candidate.source, rate_kind: 'manual',
+      effective_at: new Date(candidate.effectiveAt).toISOString(), recorded_by: user.id,
+    }).select('*').single();
+    if (error || !data) { toast.error(`Could not save FX reference: ${error?.message || 'No saved row returned'}`); return; }
+    const next: ManualFxRate = { id: data.id, baseCurrency: data.base_currency, quoteCurrency: data.quote_currency, quotePerBase: Number(data.rate), source: data.source, effectiveAt: data.effective_at, createdAt: data.created_at };
+    const updated = [next, ...rates.filter(rate => rate.id !== next.id)].slice(0, 100);
+    persistRates(updated); setSelectedRateId(next.id); setRateValue(''); setRateSource(''); setEffectiveAt(nowForInput());
+    void supabase.from('global_market_audit_events').insert({ business_id: businessId, actor_id: user.id, event_type: 'fx_rate_created', details: { rate_id: next.id, base_currency: next.baseCurrency, quote_currency: next.quoteCurrency, source: next.source } });
+    toast.success('FX reference saved securely for this business.');
   };
 
-  const addRate = (event: React.FormEvent) => {
+  const savePreferences = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!businessId) {
-      toast.error('Select a business workspace first.');
-      return;
-    }
-    const candidate = {
-      baseCurrency: baseCurrency.toUpperCase(),
-      quoteCurrency: quoteCurrency.toUpperCase(),
-      quotePerBase: Number(rateValue),
-      source: rateSource.trim(),
-      effectiveAt,
-    };
-    const error = validateManualFxRate(candidate);
-    if (error) {
-      toast.error(error);
-      return;
-    }
-    const next: ManualFxRate = { ...candidate, effectiveAt: new Date(candidate.effectiveAt).toISOString(), id: crypto.randomUUID(), createdAt: new Date().toISOString() };
-    const updated = [next, ...rates].slice(0, 100);
-    persistRates(updated);
-    setSelectedRateId(next.id);
-    setRateValue('');
-    setRateSource('');
-    setEffectiveAt(nowForInput());
-    toast.success('Manual FX reference saved for this business on this device.');
+    if (!businessId || !user?.id) { toast.error('Sign in and select a business first.'); return; }
+    setSavingPreferences(true);
+    const { error } = await supabase.from('global_market_preferences').upsert({
+      business_id: businessId, user_id: user.id, reporting_currency: reportingCurrency, locale,
+      country_code: countryCode.trim() ? countryCode.trim().toUpperCase() : null,
+      timezone: timezone.trim() || null, updated_at: new Date().toISOString(),
+    }, { onConflict: 'business_id,user_id' });
+    setSavingPreferences(false);
+    if (error) { toast.error(`Could not save preferences: ${error.message}`); return; }
+    void supabase.from('global_market_audit_events').insert({ business_id: businessId, actor_id: user.id, event_type: 'preference_updated', details: { reporting_currency: reportingCurrency, locale, country_code: countryCode.trim().toUpperCase() || null, timezone: timezone.trim() || null } });
+    toast.success('Global Market preferences synced to your business account.');
+  };
+
+  const removeRate = async (rate: ManualFxRate) => {
+    if (!businessId) return;
+    const { error } = await supabase.from('global_fx_rates').delete().eq('business_id', businessId).eq('id', rate.id);
+    if (error) { toast.error(`Could not remove rate: ${error.message}`); return; }
+    persistRates(rates.filter(item => item.id !== rate.id));
+    setSelectedRateId(rates.find(item => item.id !== rate.id)?.id || '');
+    void supabase.from('global_market_audit_events').insert({ business_id: businessId, actor_id: user?.id || null, event_type: 'fx_rate_deleted', details: { rate_id: rate.id, base_currency: rate.baseCurrency, quote_currency: rate.quoteCurrency } });
+    toast.success('FX reference removed.');
   };
 
   const selectedRate = rates.find((rate) => rate.id === selectedRateId) || rates[0];
@@ -165,7 +247,7 @@ export const GlobalMarket: React.FC = () => {
             {selectedRate && <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-600"><p>1 {selectedRate.baseCurrency} = {selectedRate.quotePerBase.toLocaleString()} {selectedRate.quoteCurrency}</p><p className="mt-1">Source: {selectedRate.source} · Effective: {new Date(selectedRate.effectiveAt).toLocaleString()}</p><p className={selectedRate && getRateFreshness(selectedRate.effectiveAt) !== 'fresh' ? 'mt-1 font-bold text-amber-700' : 'mt-1 font-semibold text-emerald-700'}>{getRateFreshness(selectedRate.effectiveAt) === 'fresh' ? 'Less than 24 hours old' : getRateFreshness(selectedRate.effectiveAt) === 'stale' ? 'Stale rate: verify before use' : 'Future or invalid timestamp: verify this rate'}</p></div>}
             <label className="mt-4 block space-y-1.5"><span className="text-xs font-semibold text-slate-600">Amount in {selectedRate?.baseCurrency || 'base currency'}</span><input className={inputClasses} type="number" min="0" step="any" value={amount} onChange={e => setAmount(e.target.value)} /></label>
             <div className="mt-4 rounded-2xl bg-cyan-50 p-5"><p className="text-xs font-bold uppercase tracking-wide text-cyan-800">Estimated converted amount</p><p className="mt-2 break-words text-3xl font-black text-slate-950">{selectedRate && convertedAmount !== null ? formatGlobalCurrency(convertedAmount, selectedRate.quoteCurrency) : '—'}</p><p className="mt-2 text-xs text-cyan-900">Estimate only. Not a payment, settlement, or guaranteed provider quote.</p></div>
-            <div className="mt-3 flex justify-end"><button type="button" onClick={() => { if (selectedRate) { persistRates(rates.filter(rate => rate.id !== selectedRate.id)); setSelectedRateId(rates.find(rate => rate.id !== selectedRate.id)?.id || ''); } }} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /> Remove selected rate</button></div>
+            <div className="mt-3 flex justify-end"><button type="button" onClick={() => { if (selectedRate) void removeRate(selectedRate); }} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50"><Trash2 className="h-4 w-4" /> Remove selected rate</button></div>
           </>}
         </section>
       </div>

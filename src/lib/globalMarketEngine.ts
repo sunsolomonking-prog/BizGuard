@@ -35,7 +35,7 @@ export interface ManualFxRate {
 
 export const getCurrencyDigits = (currency: string): number => {
   try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits;
+    return new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
   } catch {
     return 2;
   }

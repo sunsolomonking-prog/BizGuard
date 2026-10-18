@@ -10,7 +10,6 @@ import PaymentAccountDetails from '../components/billing/PaymentAccountDetails';
 
 export const Subscription: React.FC = () => {
   const { currentBusiness, user } = useAppStore();
-  const [usage, setUsage] = React.useState<VoiceUsageStatus | null>(null);
   const [snapUsage, setSnapUsage] = React.useState<SnapUsageStatus | null>(null);
   const [selectedPlan, setSelectedPlan] = React.useState<SubscriptionPlanCode | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -43,7 +42,6 @@ export const Subscription: React.FC = () => {
       } catch {
         nextSnapUsage = { business_id: businessId, plan_code: nextUsage.plan_code, plan_name: nextUsage.plan_name, used_today: 0, remaining_today: getPlanDefinition(nextUsage.plan_code).snapCountLimit, daily_limit: getPlanDefinition(nextUsage.plan_code).snapCountLimit, is_unlimited: getPlanDefinition(nextUsage.plan_code).snapCountLimit === null, reset_at: new Date(Date.now() + 86400000).toISOString(), upgrade_message: 'Snap Count available.' };
       }
-      setUsage(nextUsage);
       setSelectedPlan(nextUsage.plan_code as SubscriptionPlanCode);
       setSnapUsage(nextSnapUsage);
       setSubscriptionError(null);

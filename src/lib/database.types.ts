@@ -807,6 +807,17 @@ export interface Database {
       generate_sku: { Args: { target_business_id: string; product_category?: string | null }; Returns: string; };
       record_inventory_transaction: { Args: { p_business_id: string; p_product_id: string; p_type: string; p_quantity: number; p_notes?: string | null; p_warehouse_id?: string | null; p_batch_id?: string | null; p_reference_type?: string | null; p_reference_id?: string | null; p_unit_cost?: number; }; Returns: string; };
       check_rate_limit: { Args: { p_key: string; p_limit?: number; p_window_seconds?: number }; Returns: boolean; };
+      admin_get_my_business_account_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      admin_setup_my_business_account: {
+        Args: {
+          p_business_id?: string | null;
+          p_business_name?: string | null;
+        };
+        Returns: Json;
+      };
       create_pos_sale: {
         Args: {
           p_business_id: string;

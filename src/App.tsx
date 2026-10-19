@@ -353,7 +353,7 @@ const LoginPage: React.FC = () => {
       toast.success('Signed in successfully');
       // Super Admins land on the existing Admin Portal; everyone else keeps the
       // existing dashboard entry point.
-      navigate('/', { replace: true });
+      navigate('/portal', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {

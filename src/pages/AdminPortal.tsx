@@ -42,7 +42,7 @@ export const AdminPortal: React.FC = () => {
   // supabase.rpc loses its `this` context and causes "Cannot read properties
   // of undefined (reading 'rest')" in production.
   const adminRpc = React.useCallback(
-    (functionName: keyof Database['public']['Functions'], args?: Record<string, unknown>) => supabase.rpc(functionName, args as never),
+    (functionName: string, args?: Record<string, unknown>) => supabase.rpc(functionName as keyof Database['public']['Functions'], args as never),
     [],
   );
   const [users, setUsers] = React.useState<AdminUser[]>([]);

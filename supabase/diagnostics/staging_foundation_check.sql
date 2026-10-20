@@ -32,10 +32,6 @@ WITH objects AS (
          EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_schema='public' AND table_name='businesses' AND column_name='currency'),
          'Required by the current Global Market sale-currency trigger.'
-  UNION ALL SELECT 'Supabase migration history table',
-         to_regclass('supabase_migrations.schema_migrations') IS NOT NULL
-         OR to_regclass('supabase_migrations.schema_migrations') IS NOT NULL,
-         'Absence is not proof that no migrations ran; Supabase CLI history can be managed outside this table.'
 )
 SELECT check_name,
        CASE WHEN present THEN 'FOUND' ELSE 'MISSING — STOP AND INVESTIGATE' END AS status,

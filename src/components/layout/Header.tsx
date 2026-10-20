@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Search, Menu, Sun, Moon, User, LogOut } from 'lucide-react';
+import { Bell, Search, Menu, Sun, Moon, User, LogOut, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { Link, useLocation } from 'react-router-dom';

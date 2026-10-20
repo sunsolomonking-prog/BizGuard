@@ -87,9 +87,9 @@ export const AdminPortal: React.FC = () => {
         adminRpc('admin_list_payment_requests'),
       ]);
       if (usersResult.error) toast.error(`Users: ${usersResult.error.message}`);
-      else setUsers((usersResult.data || []) as AdminUser[]);
+      else setUsers((usersResult.data || []) as unknown as AdminUser[]);
       if (paymentsResult.error) toast.error(`Payments: ${paymentsResult.error.message}`);
-      else setPayments((paymentsResult.data || []) as PaymentRequest[]);
+      else setPayments((paymentsResult.data || []) as unknown as PaymentRequest[]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Admin data could not be loaded.');
     } finally {

@@ -1,6 +1,19 @@
 name: Global Market validation
 
 on:
+  push:
+    branches:
+      - feature/global-market-readiness
+    paths:
+      - "src/**"
+      - "supabase/migrations/**"
+      - "supabase/diagnostics/**"
+      - "docs/GLOBAL_MARKET_*.md"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "vite.config.ts"
+      - ".github/workflows/global-market-validation.yml"
   pull_request:
     branches:
       - admin-portal-repair

@@ -247,7 +247,11 @@ export const Subscription: React.FC = () => {
               <button type="button" onClick={() => setPaymentMethod('bank_transfer')} className={`rounded-lg px-3 py-2.5 text-sm font-black ${paymentMethod === 'bank_transfer' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}>Bank transfer</button>
               <button type="button" onClick={() => setPaymentMethod('usdt_erc20')} className={`rounded-lg px-3 py-2.5 text-sm font-black ${paymentMethod === 'usdt_erc20' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}>USDT · ERC-20</button>
             </div>
-            <PaymentAccountDetails amount={getPlanDefinition(requestPlan).monthlyPrice} compact={true} showInstructions={true} selectedMethod={paymentMethod} />
+            <div className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm text-cyan-950">
+              <p className="font-black">Payment option selected: {paymentMethod === 'usdt_erc20' ? 'USDT on Ethereum (ERC-20)' : 'Bank transfer'}</p>
+              <p className="mt-1 text-xs leading-5">Both payment destinations remain visible below so you can always access the bank details or USDT wallet QR/address. Follow the instructions for the option selected above.</p>
+            </div>
+            <PaymentAccountDetails amount={getPlanDefinition(requestPlan).monthlyPrice} compact={true} showInstructions={true} selectedMethod="both" />
             <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
               <p className="text-xs font-black uppercase tracking-wide text-cyan-800">Global pricing quote</p>
               {quoteLoading && <p className="mt-2 text-sm text-slate-600">Getting current FX and USDT market rates…</p>}

@@ -349,7 +349,7 @@ const LoginPage: React.FC = () => {
 
       const { error } = await signIn(email, password);
       if (error) throw error;
-      const resolvedSession = await loadSignedInProfile();
+      await loadSignedInProfile();
       toast.success('Signed in successfully');
       // Every successful sign-in lands in the normal User Portal.
       // Admin Portal is opened deliberately from the Super Admin-only link at

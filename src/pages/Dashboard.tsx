@@ -183,7 +183,7 @@ export const Dashboard: React.FC = () => {
       // No saved business-specific rate exists. Use a resilient provider chain
       // and keep the source/timestamp visible; never substitute an AI-generated number.
       try {
-        const quote = await getIndicativeFxRate(baseCurrency, quoteCurrency);
+        const quote = await getIndicativeFxRate(baseCurrency, quoteCurrency, true);
         if (cancelled) return;
         setMarketFx({ rate: quote.rate, source: quote.source, effectiveAt: quote.effectiveAt });
         setMarketFxMessage(`Converted to ${quoteCurrency} using ${quote.source}. Updated ${new Date(quote.effectiveAt).toLocaleString()} . This is indicative only; verify before accounting, tax or settlement.`);

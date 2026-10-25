@@ -349,10 +349,12 @@ const LoginPage: React.FC = () => {
 
       const { error } = await signIn(email, password);
       if (error) throw error;
-      await loadSignedInProfile();
+      const resolvedSession = await loadSignedInProfile();
       toast.success('Signed in successfully');
-      // Super Admins land on the existing Admin Portal; everyone else keeps the
-      // existing dashboard entry point.
+      // Every successful sign-in lands in the normal User Portal.
+      // Admin Portal is opened deliberately from the Super Admin-only link at
+      // the very end of the expanded "More tools" sidebar section. This avoids
+      // unexpectedly showing the separate Admin Portal password gate after login.
       navigate('/portal', { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Authentication failed');

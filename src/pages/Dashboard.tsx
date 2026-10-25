@@ -159,7 +159,7 @@ export const Dashboard: React.FC = () => {
       setMarketFx(null);
       setMarketFxMessage(null);
       if (!businessId || baseCurrency === quoteCurrency) return;
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('global_fx_rates')
         .select('base_currency,quote_currency,rate,source,effective_at')
         .eq('business_id', businessId)

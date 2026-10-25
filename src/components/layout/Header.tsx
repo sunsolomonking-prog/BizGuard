@@ -7,13 +7,10 @@ import {
   Moon,
   User,
   LogOut,
-  ShieldCheck,
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { signOut } from '../../lib/supabase';
-import { useSuperAdminAccess } from '../../lib/adminAccess';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -28,12 +25,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     user,
     setUser,
   } = useAppStore();
-
-  const location = useLocation();
-
-  // Preserve the existing Super Admin authorization mechanism.
-  const { isSuperAdmin } = useSuperAdminAccess(user?.role);
-  const isAdminPage = location.pathname === '/admin';
 
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showUserMenu, setShowUserMenu] = React.useState(false);

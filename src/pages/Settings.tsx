@@ -36,7 +36,6 @@ const GLOBAL_MARKET_COUNTRIES = [
   { code: 'PL', name: 'Poland', currency: 'PLN', timezone: 'Europe/Warsaw', locale: 'en' },
 ] as const;
 
-type GlobalMarketCountry = (typeof GLOBAL_MARKET_COUNTRIES)[number];
 
 interface BusinessForm {
   name: string;

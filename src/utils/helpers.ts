@@ -26,7 +26,7 @@ export const getMarketLocale = (): string => {
 
 export const formatCurrency = (amount: number, currency?: string, locale?: string): string => {
   const preference = getMarketPreference();
-  const selectedCurrency = currency || preference?.reportingCurrency || 'NGN';
+  const selectedCurrency = currency || 'NGN';
   const selectedLocale = locale || getMarketLocale();
   try {
     return new Intl.NumberFormat(selectedLocale, {

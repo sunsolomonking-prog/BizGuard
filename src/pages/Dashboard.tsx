@@ -156,6 +156,7 @@ export const Dashboard: React.FC = () => {
     const loadMarketRate = async () => {
       const baseCurrency = String(currentBusiness?.currency || 'NGN').toUpperCase();
       const quoteCurrency = String(marketPreference?.reportingCurrency || baseCurrency).toUpperCase();
+      setMarketFx(null);
       setMarketFxMessage(null);
       if (!businessId || baseCurrency === quoteCurrency) {
         setMarketFx(null);

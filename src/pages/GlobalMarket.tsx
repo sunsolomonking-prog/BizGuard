@@ -15,6 +15,39 @@ import {
 } from '../lib/globalMarketEngine';
 
 const currencyOptions = GLOBAL_MARKET_CURRENCIES as readonly { code: string; name: string }[];
+
+const GLOBAL_MARKET_COUNTRIES = [
+  { code: 'NG', name: 'Nigeria', currency: 'NGN', timezone: 'Africa/Lagos', locale: 'en' },
+  { code: 'NO', name: 'Norway', currency: 'NOK', timezone: 'Europe/Oslo', locale: 'en' },
+  { code: 'US', name: 'United States', currency: 'USD', timezone: 'America/New_York', locale: 'en' },
+  { code: 'GB', name: 'United Kingdom', currency: 'GBP', timezone: 'Europe/London', locale: 'en' },
+  { code: 'IE', name: 'Ireland', currency: 'EUR', timezone: 'Europe/Dublin', locale: 'en' },
+  { code: 'DE', name: 'Germany', currency: 'EUR', timezone: 'Europe/Berlin', locale: 'en' },
+  { code: 'FR', name: 'France', currency: 'EUR', timezone: 'Europe/Paris', locale: 'fr' },
+  { code: 'PT', name: 'Portugal', currency: 'EUR', timezone: 'Europe/Lisbon', locale: 'pt' },
+  { code: 'ES', name: 'Spain', currency: 'EUR', timezone: 'Europe/Madrid', locale: 'es' },
+  { code: 'CA', name: 'Canada', currency: 'CAD', timezone: 'America/Toronto', locale: 'en' },
+  { code: 'AU', name: 'Australia', currency: 'AUD', timezone: 'Australia/Sydney', locale: 'en' },
+  { code: 'NZ', name: 'New Zealand', currency: 'NZD', timezone: 'Pacific/Auckland', locale: 'en' },
+  { code: 'IN', name: 'India', currency: 'INR', timezone: 'Asia/Kolkata', locale: 'en' },
+  { code: 'KE', name: 'Kenya', currency: 'KES', timezone: 'Africa/Nairobi', locale: 'en' },
+  { code: 'GH', name: 'Ghana', currency: 'GHS', timezone: 'Africa/Accra', locale: 'en' },
+  { code: 'ZA', name: 'South Africa', currency: 'ZAR', timezone: 'Africa/Johannesburg', locale: 'en' },
+  { code: 'JP', name: 'Japan', currency: 'JPY', timezone: 'Asia/Tokyo', locale: 'en' },
+  { code: 'CN', name: 'China', currency: 'CNY', timezone: 'Asia/Shanghai', locale: 'en' },
+  { code: 'CH', name: 'Switzerland', currency: 'CHF', timezone: 'Europe/Zurich', locale: 'en' },
+  { code: 'AE', name: 'United Arab Emirates', currency: 'AED', timezone: 'Asia/Dubai', locale: 'ar' },
+  { code: 'BR', name: 'Brazil', currency: 'BRL', timezone: 'America/Sao_Paulo', locale: 'pt' },
+  { code: 'MX', name: 'Mexico', currency: 'MXN', timezone: 'America/Mexico_City', locale: 'es' },
+  { code: 'SG', name: 'Singapore', currency: 'SGD', timezone: 'Asia/Singapore', locale: 'en' },
+  { code: 'HK', name: 'Hong Kong', currency: 'HKD', timezone: 'Asia/Hong_Kong', locale: 'en' },
+  { code: 'SE', name: 'Sweden', currency: 'SEK', timezone: 'Europe/Stockholm', locale: 'en' },
+  { code: 'DK', name: 'Denmark', currency: 'DKK', timezone: 'Europe/Copenhagen', locale: 'en' },
+  { code: 'PL', name: 'Poland', currency: 'PLN', timezone: 'Europe/Warsaw', locale: 'en' },
+  { code: 'SA', name: 'Saudi Arabia', currency: 'SAR', timezone: 'Asia/Riyadh', locale: 'ar' },
+  { code: 'TR', name: 'Türkiye', currency: 'TRY', timezone: 'Europe/Istanbul', locale: 'en' },
+] as const;
+
 type GlobalMarketTransaction = Database['public']['Tables']['global_market_transactions']['Row'];
 const nowForInput = () => {
   const now = new Date();
@@ -298,7 +331,7 @@ export const GlobalMarket: React.FC = () => {
         <form onSubmit={savePreferences} className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Reporting currency</span><select className={selectClasses} value={reportingCurrency} onChange={e => setReportingCurrency(e.target.value)}>{currencyOptions.map(item => <option key={item.code} value={item.code}>{item.code} — {item.name}</option>)}</select></label>
           <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Language</span><select className={selectClasses} value={locale} onChange={e => setLocale(e.target.value)}><option value="en">English</option><option value="fr">Français</option><option value="pt">Português</option><option value="es">Español</option><option value="ar">العربية</option></select></label>
-          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Country code</span><input className={inputClasses} value={countryCode} onChange={e => setCountryCode(e.target.value.toUpperCase().slice(0,2))} placeholder="NG" pattern="[A-Za-z]{2}" maxLength={2} /></label>
+          <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">Choose your country / market</span><select className={selectClasses} value={countryCode} onChange={e => { const selected = GLOBAL_MARKET_COUNTRIES.find(country => country.code === e.target.value); setCountryCode(selected?.code || ''); if (selected) { setReportingCurrency(selected.currency); setInsightCurrency(selected.currency); setTimezone(selected.timezone); setLocale(['en','fr','pt','es','ar'].includes(selected.locale) ? selected.locale : 'en'); } }}><option value="">Select a country</option>{GLOBAL_MARKET_COUNTRIES.map(country => <option key={country.code} value={country.code}>{country.name} — {country.currency}</option>)}</select></label>
           <label className="space-y-1.5"><span className="text-xs font-semibold text-slate-600">IANA timezone</span><input className={inputClasses} value={timezone} onChange={e => setTimezone(e.target.value)} placeholder="Africa/Lagos" /></label>
           <div className="flex items-end"><button disabled={savingPreferences} className="w-full rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-800 disabled:opacity-50">{savingPreferences ? 'Saving…' : 'Save preferences'}</button></div>
         </form>

@@ -454,7 +454,7 @@ export const Dashboard: React.FC = () => {
                   <BarChart data={dashboard.topProducts} layout="vertical">
                     <XAxis type="number" hide />
                     <YAxis type="category" dataKey="name" width={95} stroke="#64748b" fontSize={11} />
-                    <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                    <Tooltip formatter={(value) => money(Number(value || 0))} />
                     <Bar dataKey="revenue" fill="#10b981" radius={[0, 8, 8, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

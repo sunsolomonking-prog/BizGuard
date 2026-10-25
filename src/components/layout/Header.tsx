@@ -264,7 +264,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             )}
           </div>
 
-          {/* Global country selector — shared across BizGuard's signed-in workspace */
+          {/* Global country selector — shared across BizGuard's signed-in workspace */}
           <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
             <Globe2 className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
             <label className="sr-only" htmlFor="bizguard-global-country">Country / market</label>

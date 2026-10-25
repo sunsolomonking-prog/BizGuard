@@ -1,4 +1,5 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Bell,
   Search,
@@ -10,6 +11,12 @@ import {
   Globe2,
   Sparkles,
   Volume2,
+  X,
+  Zap,
+  Target,
+  ShieldCheck,
+  ArrowUpRight,
+  Clock3,
 } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
@@ -466,37 +473,128 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         </div>
       </div>
 
-      {showDailyStrategy && (
-        <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 pt-20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="bizguard-daily-strategy-title">
-          <section className="w-full max-w-xl overflow-hidden rounded-3xl border border-violet-200 bg-white shadow-2xl">
-            <div className="bg-gradient-to-r from-slate-950 via-violet-950 to-indigo-900 p-5 text-white sm:p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[.2em] text-violet-200">BizGuard intelligence briefing</p>
-                  <h2 id="bizguard-daily-strategy-title" className="mt-2 text-2xl font-black">{dailyStrategy?.title || 'Your Daily Strategy'}</h2>
-                  <p className="mt-2 text-sm text-violet-100">{dailyStrategyLoading ? 'Connecting business signals and preparing your strategic brief…' : 'Clear priorities. Better decisions. One focused day at a time.'}</p>
-                </div>
-                <button type="button" onClick={() => setShowDailyStrategy(false)} className="rounded-lg px-3 py-1 text-xl text-white/80 hover:bg-white/10" aria-label="Close daily strategy">×</button>
+      <AnimatePresence>
+        {showDailyStrategy && (
+          <motion.div
+            key="bizguard-neural-briefing-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-[#050617]/80 p-3 backdrop-blur-xl sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bizguard-daily-strategy-title"
+            onMouseDown={(event) => { if (event.target === event.currentTarget) setShowDailyStrategy(false); }}
+          >
+            <motion.section
+              initial={{ opacity: 0, y: 70, scale: 0.88, rotateX: 9 }}
+              animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+              exit={{ opacity: 0, y: 30, scale: 0.94, rotateX: -4 }}
+              transition={{ type: 'spring', stiffness: 180, damping: 22, mass: 0.9 }}
+              style={{ perspective: 1400, transformStyle: 'preserve-3d' }}
+              className="relative my-auto w-full max-w-4xl overflow-hidden rounded-[30px] border border-violet-300/25 bg-[#080b20] text-white shadow-[0_35px_120px_rgba(0,0,0,0.65)]"
+            >
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div className="absolute -right-24 -top-28 h-80 w-80 rounded-full bg-fuchsia-600/25 blur-[90px]" />
+                <div className="absolute -left-24 top-36 h-72 w-72 rounded-full bg-cyan-500/20 blur-[90px]" />
+                <div className="absolute bottom-[-140px] right-[25%] h-72 w-72 rounded-full bg-indigo-500/25 blur-[90px]" />
+                <div className="absolute inset-0 opacity-[0.11]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.22) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.22) 1px, transparent 1px)', backgroundSize: '38px 38px', maskImage: 'linear-gradient(to bottom, black, transparent 90%)' }} />
+                <motion.div animate={{ rotate: 360 }} transition={{ duration: 38, repeat: Infinity, ease: 'linear' }} className="absolute -right-20 top-10 h-64 w-64 rounded-full border border-cyan-200/15" />
+                <motion.div animate={{ rotate: -360 }} transition={{ duration: 52, repeat: Infinity, ease: 'linear' }} className="absolute -right-9 top-20 h-44 w-44 rounded-full border border-fuchsia-200/20 border-dashed" />
               </div>
-            </div>
-            <div className="space-y-4 p-5 sm:p-6">
-              <p className="text-sm leading-6 text-slate-700">{dailyStrategy?.summary || (dailyStrategyLoading ? 'Reviewing your business performance, cash flow, inventory and opportunities.' : 'Open your Daily Strategy to prepare today’s briefing.')}</p>
-              {dailyStrategy?.actionPlan?.length ? (
-                <div>
-                  <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Your next best moves</h3>
-                  <ol className="space-y-2">{dailyStrategy.actionPlan.slice(0, 5).map((item, index) => <li key={item} className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-violet-100 text-xs font-black text-violet-800">{index + 1}</span><span>{item}</span></li>)}</ol>
+
+              <div className="relative flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-8">
+                <div className="flex items-center gap-3">
+                  <motion.div animate={{ boxShadow: ['0 0 12px rgba(139,92,246,.25)', '0 0 32px rgba(34,211,238,.55)', '0 0 12px rgba(139,92,246,.25)'] }} transition={{ duration: 3.2, repeat: Infinity }} className="grid h-12 w-12 place-items-center rounded-2xl border border-white/15 bg-gradient-to-br from-violet-500 via-indigo-500 to-cyan-400 shadow-lg">
+                    <Sparkles className="h-6 w-6 text-white" />
+                  </motion.div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[.28em] text-cyan-200/90">BizGuard Neural Core</p>
+                    <p className="mt-1 text-xs text-white/55">Executive intelligence · Daily mission control</p>
+                  </div>
                 </div>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void runDailyStrategy(false)} disabled={dailyStrategyLoading} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">{dailyStrategyLoading ? 'Preparing…' : 'Refresh strategy'}</button>
-                <button type="button" onClick={() => void enableDailyStrategy()} disabled={dailyStrategyEnabled} className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-800 hover:bg-violet-100 disabled:opacity-60">{dailyStrategyEnabled ? 'Morning reminders enabled' : 'Enable morning reminders'}</button>
-                <button type="button" onClick={() => setShowDailyStrategy(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Close</button>
+                <button type="button" onClick={() => setShowDailyStrategy(false)} className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:rotate-90 hover:bg-white/15 hover:text-white" aria-label="Close daily strategy">
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <p className="text-[11px] leading-5 text-slate-400">Daily reminders are opt-in and limited to one morning briefing per user, business and day while the workspace is open. Browser notifications depend on permission. This does not send email/SMS or run when the app is closed.</p>
-            </div>
-          </section>
-        </div>
-      )}
+
+              <div className="relative grid gap-6 p-5 sm:p-8 lg:grid-cols-[1.15fr_.85fr]">
+                <div className="flex flex-col justify-center">
+                  <motion.div initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .12 }} className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-cyan-100">
+                    <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" /></span>
+                    {dailyStrategyLoading ? 'Neural systems synchronizing' : 'Your daily command brief'}
+                  </motion.div>
+                  <motion.h2 initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .18 }} id="bizguard-daily-strategy-title" className="max-w-xl text-3xl font-black leading-[1.05] tracking-tight sm:text-5xl">
+                    {dailyStrategy?.title || 'Own the day.'}
+                    <span className="mt-2 block bg-gradient-to-r from-cyan-200 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent">{dailyStrategyLoading ? 'Intelligence in motion.' : 'Move with clarity.'}</span>
+                  </motion.h2>
+                  <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .24 }} className="mt-5 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
+                    {dailyStrategy?.summary || (dailyStrategyLoading ? 'Connecting business signals, cash flow, inventory and opportunities to shape your next best moves…' : 'A sharper view of your business. A clearer next move. A focused plan built around your live business signals.')}
+                  </motion.p>
+                  <div className="mt-7 flex flex-wrap gap-3">
+                    <motion.button whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: .97 }} type="button" onClick={() => void runDailyStrategy(false)} disabled={dailyStrategyLoading} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 via-indigo-500 to-cyan-500 px-5 py-3 text-sm font-black text-white shadow-[0_8px_30px_rgba(99,102,241,.35)] transition disabled:opacity-60">
+                      <Zap className={`h-4 w-4 ${dailyStrategyLoading ? 'animate-pulse' : ''}`} />
+                      {dailyStrategyLoading ? 'Reading business signals…' : 'Recalculate my strategy'}
+                      {!dailyStrategyLoading && <ArrowUpRight className="h-4 w-4" />}
+                    </motion.button>
+                    <button type="button" onClick={() => void enableDailyStrategy()} disabled={dailyStrategyEnabled} className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-sm font-bold text-white/85 transition hover:border-cyan-200/40 hover:bg-white/10 disabled:opacity-60">
+                      <Volume2 className="h-4 w-4 text-cyan-200" />
+                      {dailyStrategyEnabled ? 'Morning pulse enabled' : 'Enable morning pulse'}
+                    </button>
+                  </div>
+                  <p className="mt-4 text-[11px] leading-5 text-white/40">Private to your workspace · Notifications are opt-in · Built to support your decisions, not replace your judgment.</p>
+                </div>
+
+                <motion.div initial={{ opacity: 0, x: 28, rotateY: -8 }} animate={{ opacity: 1, x: 0, rotateY: 0 }} transition={{ delay: .2, type: 'spring', stiffness: 140, damping: 20 }} style={{ transformStyle: 'preserve-3d' }} className="relative">
+                  <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-br from-violet-500/30 via-cyan-400/15 to-fuchsia-500/30 blur-xl" />
+                  <div className="relative rounded-[24px] border border-white/15 bg-white/[0.055] p-4 shadow-2xl backdrop-blur-2xl sm:p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[.2em] text-violet-200">Priority matrix</p>
+                        <p className="mt-1 text-sm font-bold text-white">Your next best moves</p>
+                      </div>
+                      <div className="grid h-10 w-10 place-items-center rounded-xl border border-cyan-200/20 bg-cyan-200/10"><Target className="h-5 w-5 text-cyan-200" /></div>
+                    </div>
+                    {dailyStrategy?.actionPlan?.length ? (
+                      <ol className="mt-5 space-y-3">
+                        {dailyStrategy.actionPlan.slice(0, 5).map((item, index) => (
+                          <motion.li key={item} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .28 + index * .09 }} className="group flex gap-3 rounded-2xl border border-white/[0.09] bg-slate-950/45 p-3 transition hover:-translate-y-0.5 hover:border-cyan-200/30 hover:bg-white/[0.08]">
+                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-500/35 to-cyan-400/25 text-xs font-black text-cyan-100 ring-1 ring-white/10">{String(index + 1).padStart(2, '0')}</span>
+                            <span className="pt-1 text-xs leading-5 text-slate-200 sm:text-sm">{item}</span>
+                          </motion.li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+                        <motion.div animate={{ opacity: [.45, 1, .45] }} transition={{ duration: 2.2, repeat: Infinity }} className="mb-4 flex items-center gap-2 text-xs font-bold text-cyan-100"><Clock3 className="h-4 w-4" /> {dailyStrategyLoading ? 'Scanning live signals' : 'Ready to generate your brief'}</motion.div>
+                        <div className="space-y-2"><div className="h-2 w-full rounded-full bg-white/10" /><div className="h-2 w-4/5 rounded-full bg-white/10" /><div className="h-2 w-2/3 rounded-full bg-white/10" /></div>
+                        <p className="mt-4 text-xs leading-5 text-white/50">{dailyStrategyLoading ? 'Sales, inventory, receivables and risk signals are being organized into actionable priorities.' : 'Generate a fresh strategy to populate this live priority matrix.'}</p>
+                      </div>
+                    )}
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.07] p-3">
+                        <ShieldCheck className="h-4 w-4 text-emerald-200" />
+                        <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-emerald-100/80">Signal aware</p>
+                        <p className="mt-1 text-[11px] text-white/50">Business-first guidance</p>
+                      </div>
+                      <div className="rounded-2xl border border-violet-300/15 bg-violet-300/[0.07] p-3">
+                        <Activity className="h-4 w-4 text-violet-200" />
+                        <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-violet-100/80">Daily momentum</p>
+                        <p className="mt-1 text-[11px] text-white/50">One clear next step</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+              <div className="relative flex items-center justify-between gap-3 border-t border-white/10 bg-black/20 px-5 py-3 sm:px-8">
+                <p className="text-[10px] text-white/40">BIZGUARD · NEURAL CORE / DAILY BRIEFING</p>
+                <button type="button" onClick={() => setShowDailyStrategy(false)} className="rounded-lg px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-white/10 hover:text-white">Return to workspace</button>
+              </div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </header>
   );

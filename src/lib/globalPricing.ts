@@ -101,7 +101,7 @@ export async function getGlobalPriceQuote(baseAmountNgn: number, currency: strin
     ngnPerLocal: 1 / localFx.rate,
     usdPerUsdt: crypto.rate,
     source: `${localFx.source}; ${usdFx.source}; ${crypto.source}`,
-    fetchedAt: [localFx.effectiveAt, usdFx.effectiveAt, crypto.fetchedAt].sort()[0],
+    fetchedAt: [localFx.effectiveAt, usdFx.effectiveAt, crypto.fetchedAt].sort().at(-1) || new Date(now).toISOString(),
     expiresAt: new Date(now + 5 * 60 * 1000).toISOString(),
   };
 }

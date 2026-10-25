@@ -117,9 +117,19 @@ export const Dashboard: React.FC = () => {
   });
   const [marketFx, setMarketFx] = React.useState<{ rate: number; source: string; effectiveAt: string } | null>(null);
   const [marketFxMessage, setMarketFxMessage] = React.useState<string | null>(null);
-  const displayCurrency = marketFx ? (marketPreference?.reportingCurrency || currentBusiness?.currency || 'NGN') : (currentBusiness?.currency || 'NGN');
-  const convertForDisplay = React.useCallback((amount: number) => marketFx ? amount * marketFx.rate : amount, [marketFx]);
-  const money = React.useCallback((amount: number) => formatCurrency(convertForDisplay(amount), displayCurrency, marketPreference?.countryCode === 'NO' ? 'nb-NO' : undefined), [convertForDisplay, displayCurrency, marketPreference?.countryCode]);
+  const sourceCurrency = String(currentBusiness?.currency || 'NGN').toUpperCase();
+  const displayCurrency = String(marketPreference?.reportingCurrency || sourceCurrency).toUpperCase();
+  const requiresConversion = sourceCurrency !== displayCurrency;
+  const hasVerifiedMarketRate = !requiresConversion || !!marketFx;
+  const convertForDisplay = React.useCallback((amount: number) => {
+    if (sourceCurrency === displayCurrency) return amount;
+    return marketFx ? amount * marketFx.rate : null;
+  }, [marketFx, sourceCurrency, displayCurrency]);
+  const money = React.useCallback((amount: number) => {
+    const converted = convertForDisplay(amount);
+    if (converted === null) return `Rate unavailable · ${displayCurrency}`;
+    return formatCurrency(converted, displayCurrency, marketPreference?.countryCode === 'NO' ? 'nb-NO' : undefined);
+  }, [convertForDisplay, displayCurrency, marketPreference?.countryCode]);
 
   React.useEffect(() => {
     const updatePreference = (event?: Event) => {
@@ -344,11 +354,13 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {marketPreference && (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', marketFx ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900')}>
-          <p className="font-semibold">Market view: {marketPreference.countryCode} · {marketFx ? displayCurrency : (currentBusiness?.currency || 'NGN')} · {marketPreference.timezone}</p>
-          <p className="mt-1">{marketFx
-            ? `Amounts converted from ${currentBusiness?.currency || 'NGN'} using the saved rate (${marketFx.source}, ${new Date(marketFx.effectiveAt).toLocaleString(marketPreference.locale || 'en', { timeZone: marketPreference.timezone || 'UTC' })}).`
-            : (marketFxMessage || (displayCurrency === (currentBusiness?.currency || 'NGN') ? 'Your selected market preferences are active.' : 'Waiting for a verified exchange rate.'))}</p>
+        <div className={cn('rounded-xl border px-4 py-3 text-sm', hasVerifiedMarketRate ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900')}>
+          <p className="font-semibold">Market view: {marketPreference.countryCode} · {displayCurrency} · {marketPreference.timezone}</p>
+          <p className="mt-1">{!requiresConversion
+            ? 'Your business currency matches the selected reporting currency.'
+            : marketFx
+              ? `All dashboard monetary values are converted from ${sourceCurrency} to ${displayCurrency} using the saved rate (${marketFx.source}, ${new Date(marketFx.effectiveAt).toLocaleString(marketPreference.locale || 'en', { timeZone: marketPreference.timezone || 'UTC' })}).`
+              : `Monetary values and currency charts are hidden until a verified ${sourceCurrency}/${displayCurrency} exchange rate is available. ${marketFxMessage || 'Add or refresh the rate in Global Market.'}`}</p>
         </div>
       )}
 
@@ -419,8 +431,8 @@ export const Dashboard: React.FC = () => {
                   <LineChart data={dashboard.dailySales}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                    <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => `${new Intl.NumberFormat(marketPreference?.locale || 'en', { style: 'currency', currency: displayCurrency, maximumFractionDigits: 0 }).format(Number(value) / 1000)}K`} />
-                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value) => [money(Number(value || 0)), '']} />
+                    <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => hasVerifiedMarketRate ? `${new Intl.NumberFormat(marketPreference?.countryCode === 'NO' ? 'nb-NO' : (marketPreference?.locale || 'en'), { style: 'currency', currency: displayCurrency, maximumFractionDigits: 0 }).format(Number(value) / 1000)}K` : '—'} />
+                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value) => [hasVerifiedMarketRate ? money(Number(value || 0)) : `Rate unavailable · ${displayCurrency}`, '']} />
                     <Legend />
                     <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', strokeWidth: 2 }} name="Revenue" />
                     <Line type="monotone" dataKey="sales" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', strokeWidth: 2 }} name="Sales Count" />
@@ -438,7 +450,7 @@ export const Dashboard: React.FC = () => {
                     <Pie data={dashboard.categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={5} dataKey="value">
                       {dashboard.categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(value) => money(Number(value || 0))} />
+                    <Tooltip formatter={(value) => hasVerifiedMarketRate ? money(Number(value || 0)) : `Rate unavailable · ${displayCurrency}`} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>

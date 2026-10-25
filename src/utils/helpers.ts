@@ -26,24 +26,62 @@ export const getMarketLocale = (): string => {
 
 export const formatCurrency = (amount: number, currency?: string, locale?: string): string => {
   const preference = getMarketPreference();
-  const selectedCurrency = currency || 'NGN';
+  const selectedCurrency = (currency || preference?.reportingCurrency || 'NGN').toUpperCase();
   const selectedLocale = locale || getMarketLocale();
+  if (!Number.isFinite(amount)) return '—';
+
+  // Never relabel an amount as another currency without a verified FX rate.
+  // A saved preference may include verifiedRates: { "NGN:NOK": 0.0 } where
+  // the value is quote-currency units per one base-currency unit.
+  const sourceCurrency = (preference as (typeof preference & { sourceCurrency?: string; verifiedRates?: Record<string, number> }) | null)?.sourceCurrency;
+  const verifiedRates = (preference as (typeof preference & { verifiedRates?: Record<string, number> }) | null)?.verifiedRates;
+  let displayAmount = amount;
+  let displayCurrency = selectedCurrency;
+
+  if (sourceCurrency && sourceCurrency.toUpperCase() !== selectedCurrency) {
+    const rate = verifiedRates?.[`${sourceCurrency.toUpperCase()}:${selectedCurrency}`];
+    if (typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) {
+      return `Rate unavailable · ${selectedCurrency}`;
+    }
+    displayAmount = amount * rate;
+  } else if (!sourceCurrency && preference?.reportingCurrency && selectedCurrency !== 'NGN') {
+    // Existing records have no guaranteed source-currency metadata. Do not
+    // imply that an NGN amount has been converted to the selected market.
+    return `Rate unavailable · ${selectedCurrency}`;
+  }
+
   try {
     return new Intl.NumberFormat(selectedLocale, {
       style: 'currency',
-      currency: selectedCurrency,
+      currency: displayCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(displayAmount);
   } catch {
-    return `${selectedCurrency} ${amount.toLocaleString(selectedLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${displayCurrency} ${displayAmount.toLocaleString(selectedLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 };
 
 // Date formatting
 export const formatDate = (date: string | Date, formatStr: string = 'MMM dd, yyyy'): string => {
-  const d = typeof date === 'string' ? parseISO(date) : date;
-  return format(d, formatStr);
+  const parsed = typeof date === 'string' ? parseISO(date) : date;
+  if (!Number.isFinite(parsed.getTime())) return '—';
+  const preference = getMarketPreference();
+  const locale = getMarketLocale();
+  const timezone = preference?.timezone;
+  // Preserve common existing date-fns format tokens while applying selected
+  // market timezone to date/time displays across modules.
+  if (timezone) {
+    try {
+      const options: Intl.DateTimeFormatOptions = formatStr.includes('HH') || formatStr.includes('hh')
+        ? { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: timezone }
+        : { year: 'numeric', month: 'short', day: '2-digit', timeZone: timezone };
+      return new Intl.DateTimeFormat(locale, options).format(parsed);
+    } catch {
+      // Fall through to existing formatter if the timezone is invalid.
+    }
+  }
+  return format(parsed, formatStr);
 };
 
 export const formatRelativeTime = (date: string | Date): string => {

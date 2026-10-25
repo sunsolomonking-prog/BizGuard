@@ -98,47 +98,73 @@ create or replace function public.admin_review_payment_request(
   p_decision text,
   p_admin_note text default null
 )
-returns public.payment_requests
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_request public.payment_requests;
-  v_plan public.subscription_plans;
+  v_request public.payment_requests%rowtype;
+  v_plan public.subscription_plans%rowtype;
   v_now timestamptz := now();
 begin
   if not public.is_current_user_super_admin() then
     raise exception 'admin access required' using errcode = '42501';
   end if;
-  if p_decision not in ('approved','rejected') then
-    raise exception 'decision must be approved or rejected';
+
+  if p_decision is null or p_decision not in ('approved', 'rejected') then
+    raise exception 'decision must be approved or rejected' using errcode = '22023';
   end if;
 
-  select * into v_request from public.payment_requests where id = p_request_id for update;
-  if not found then raise exception 'payment request not found'; end if;
-  if v_request.status <> 'pending' then return v_request; end if;
+  select * into v_request
+  from public.payment_requests
+  where id = p_request_id
+  for update;
+
+  if not found then
+    raise exception 'payment request not found' using errcode = 'P0002';
+  end if;
+
+  if v_request.status <> 'pending' then
+    return jsonb_build_object(
+      'success', true,
+      'already_processed', true,
+      'request_id', v_request.id,
+      'status', v_request.status
+    );
+  end if;
 
   if p_decision = 'approved' then
-    select * into v_plan from public.subscription_plans
-    where code::text = v_request.plan_code and is_active = true limit 1;
-    if not found then raise exception 'subscription plan % is not active', v_request.plan_code; end if;
-    if v_request.business_id is null then raise exception 'payment request has no business workspace'; end if;
+    if v_request.business_id is null then
+      raise exception 'payment request has no business workspace' using errcode = '22023';
+    end if;
+
     if v_request.proof_url is null or length(trim(v_request.proof_url)) = 0 then
-      raise exception 'payment proof is required before approval';
+      raise exception 'payment proof is required before approval' using errcode = '22023';
     end if;
-    if v_request.amount_ngn <> v_plan.monthly_price_ngn then
-      raise exception 'payment amount does not match the selected plan';
+
+    select * into v_plan
+    from public.subscription_plans
+    where code::text = v_request.plan_code and is_active = true
+    limit 1;
+
+    if not found then
+      raise exception 'subscription plan % is not active', v_request.plan_code using errcode = '22023';
     end if;
+
+    if v_request.amount_ngn is null or v_request.amount_ngn <> v_plan.monthly_price_ngn then
+      raise exception 'payment amount does not match the selected subscription plan' using errcode = '22023';
+    end if;
+
     if v_request.provider = 'usdt_erc20' then
       if v_request.reference is null or v_request.reference !~ '^0x[0-9a-fA-F]{64}$' then
-        raise exception 'valid Ethereum transaction hash required before crypto approval';
+        raise exception 'valid Ethereum transaction hash required before crypto approval' using errcode = '22023';
       end if;
       if coalesce(p_admin_note, '') !~* 'manually verified on Etherscan' then
-        raise exception 'USDT approval requires explicit administrator attestation that the transaction was manually verified on Etherscan';
+        raise exception 'USDT approval requires explicit administrator attestation that the transaction was manually verified on Etherscan' using errcode = '22023';
       end if;
     elsif v_request.provider <> 'bank_transfer' then
-      raise exception 'unsupported payment provider';
+      raise exception 'unsupported payment provider' using errcode = '22023';
     end if;
   end if;
 
@@ -148,7 +174,7 @@ begin
       reviewed_at = v_now,
       admin_note = p_admin_note,
       updated_at = v_now
-  where id = p_request_id returning * into v_request;
+  where id = v_request.id;
 
   if p_decision = 'approved' then
     update public.business_subscriptions
@@ -185,7 +211,18 @@ begin
       );
     end if;
   end if;
-  return v_request;
+
+  return jsonb_build_object(
+    'success', true,
+    'request_id', v_request.id,
+    'decision', p_decision,
+    'status', p_decision,
+    'business_id', v_request.business_id,
+    'plan_code', v_request.plan_code,
+    'reviewed_by', auth.uid(),
+    'reviewed_at', v_now,
+    'payment_provider', v_request.provider
+  );
 end;
 $$;
 

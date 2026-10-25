@@ -156,42 +156,50 @@ export const Dashboard: React.FC = () => {
     const loadMarketRate = async () => {
       const baseCurrency = String(currentBusiness?.currency || 'NGN').toUpperCase();
       const quoteCurrency = String(marketPreference?.reportingCurrency || baseCurrency).toUpperCase();
-      setMarketFx(null);
       setMarketFxMessage(null);
-      if (!businessId || baseCurrency === quoteCurrency) return;
-      const { data } = await supabase
-        .from('global_fx_rates')
-        .select('base_currency,quote_currency,rate,source,effective_at')
-        .eq('business_id', businessId)
-        .in('base_currency', [baseCurrency, quoteCurrency])
-        .in('quote_currency', [baseCurrency, quoteCurrency])
-        .order('effective_at', { ascending: false })
-        .limit(30);
-      if (cancelled) return;
-      const rows = data || [];
-      const direct = rows.find((row) => row.base_currency === baseCurrency && row.quote_currency === quoteCurrency && Number(row.rate) > 0);
-      const reverse = rows.find((row) => row.base_currency === quoteCurrency && row.quote_currency === baseCurrency && Number(row.rate) > 0);
-      if (direct) {
-        setMarketFx({ rate: Number(direct.rate), source: direct.source, effectiveAt: direct.effective_at });
-        return;
-      }
-      if (reverse) {
-        setMarketFx({ rate: 1 / Number(reverse.rate), source: reverse.source, effectiveAt: reverse.effective_at });
+      if (!businessId || baseCurrency === quoteCurrency) {
+        setMarketFx(null);
         return;
       }
 
-      // No saved business-specific rate exists. Use a resilient provider chain
-      // and keep the source/timestamp visible; never substitute an AI-generated number.
+      // Prefer a live multi-provider quote first so an old business-specific
+      // rate cannot silently override the current indicative market rate.
       try {
         const quote = await getIndicativeFxRate(baseCurrency, quoteCurrency, true);
         if (cancelled) return;
         setMarketFx({ rate: quote.rate, source: quote.source, effectiveAt: quote.effectiveAt });
-        setMarketFxMessage(`Converted to ${quoteCurrency} using ${quote.source}. Updated ${new Date(quote.effectiveAt).toLocaleString()} . This is indicative only; verify before accounting, tax or settlement.`);
-      } catch (lookupError) {
+        setMarketFxMessage(`Converted to ${quoteCurrency} using ${quote.source}. Rate timestamp: ${new Date(quote.effectiveAt).toLocaleString()}. Indicative only; verify before accounting, tax or settlement.`);
+        return;
+      } catch (liveLookupError) {
         if (cancelled) return;
-        setMarketFxMessage(lookupError instanceof Error
-          ? `${lookupError.message} Currency totals are hidden rather than guessed.`
-          : `No current ${baseCurrency}/${quoteCurrency} rate is available. Currency totals are hidden rather than guessed.`);
+        // If live providers are down, use a previously stored business rate only
+        // as a clearly labelled fallback; never call it a current market quote.
+        const { data } = await supabase
+          .from('global_fx_rates')
+          .select('base_currency,quote_currency,rate,source,effective_at')
+          .eq('business_id', businessId)
+          .in('base_currency', [baseCurrency, quoteCurrency])
+          .in('quote_currency', [baseCurrency, quoteCurrency])
+          .order('effective_at', { ascending: false })
+          .limit(30);
+        if (cancelled) return;
+        const rows = data || [];
+        const direct = rows.find((row) => row.base_currency === baseCurrency && row.quote_currency === quoteCurrency && Number(row.rate) > 0);
+        const reverse = rows.find((row) => row.base_currency === quoteCurrency && row.quote_currency === baseCurrency && Number(row.rate) > 0);
+        const saved = direct
+          ? { rate: Number(direct.rate), source: direct.source || 'saved business rate', effectiveAt: direct.effective_at }
+          : reverse
+            ? { rate: 1 / Number(reverse.rate), source: reverse.source || 'saved business rate (inverted)', effectiveAt: reverse.effective_at }
+            : null;
+        if (saved && Number.isFinite(saved.rate) && saved.rate > 0) {
+          setMarketFx({ ...saved, source: `Saved fallback (may be stale) · ${saved.source}` });
+          setMarketFxMessage(`Live FX providers are temporarily unavailable. Showing the saved ${baseCurrency}/${quoteCurrency} rate from ${new Date(saved.effectiveAt).toLocaleString()}; verify it before financial decisions.`);
+          return;
+        }
+        setMarketFx(null);
+        setMarketFxMessage(liveLookupError instanceof Error
+          ? `${liveLookupError.message} No saved fallback rate is available; monetary values are hidden rather than guessed.`
+          : `No live or saved ${baseCurrency}/${quoteCurrency} rate is available. Monetary values are hidden rather than guessed.`);
       }
     };
     void loadMarketRate();

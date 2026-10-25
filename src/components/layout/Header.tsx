@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ArrowUpRight,
   Clock3,
+  Activity,
 } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';

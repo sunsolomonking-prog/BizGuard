@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 import {
   Bell,
@@ -50,6 +49,14 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     }
   };
 
+  const handleMarkAllRead = () => {
+    alerts.forEach((alert) => {
+      if (!alert.isRead) {
+        markAlertAsRead(alert.id);
+      }
+    });
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur-md">
       <div className="flex h-16 items-center justify-between px-4 lg:px-6">
@@ -59,20 +66,23 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             type="button"
             onClick={onMenuClick}
             aria-label="Open navigation menu"
-            className="rounded-lg p-2 hover:bg-slate-100 lg:hidden"
+            className="rounded-lg p-2 transition-colors hover:bg-slate-100 lg:hidden"
           >
             <Menu className="h-5 w-5 text-slate-600" />
           </button>
 
           {/* Existing search field */}
           <div className="hidden w-64 items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 md:flex lg:w-96">
-            <Search className="h-4 w-4 text-slate-400" />
+            <Search
+              className="h-4 w-4 text-slate-400"
+              aria-hidden="true"
+            />
 
             <input
               type="text"
               placeholder="Search products, customers, invoices..."
               aria-label="Search products, customers, and invoices"
-              className="flex-1 border-none bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+              className="min-w-0 flex-1 border-none bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
             />
 
             <kbd className="hidden items-center gap-1 rounded border bg-white px-2 py-0.5 text-xs text-slate-400 lg:inline-flex">
@@ -97,7 +107,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   : 'border-amber-400 bg-slate-950 text-white shadow-amber-100 hover:bg-slate-800'
               )}
             >
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              <ShieldCheck
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
 
               <span className="sm:hidden">ADMIN</span>
               <span className="hidden sm:inline">ADMIN PORTAL</span>
@@ -116,9 +129,15 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             className="rounded-lg p-2 transition-colors hover:bg-slate-100"
           >
             {theme === 'light' ? (
-              <Moon className="h-5 w-5 text-slate-600" />
+              <Moon
+                className="h-5 w-5 text-slate-600"
+                aria-hidden="true"
+              />
             ) : (
-              <Sun className="h-5 w-5 text-slate-600" />
+              <Sun
+                className="h-5 w-5 text-slate-600"
+                aria-hidden="true"
+              />
             )}
           </button>
 
@@ -126,7 +145,9 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setShowNotifications((visible) => !visible)}
+              onClick={() =>
+                setShowNotifications((visible) => !visible)
+              }
               aria-label={`Notifications${
                 unreadAlerts.length > 0
                   ? `, ${unreadAlerts.length} unread`
@@ -135,7 +156,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               aria-expanded={showNotifications}
               className="relative rounded-lg p-2 transition-colors hover:bg-slate-100"
             >
-              <Bell className="h-5 w-5 text-slate-600" />
+              <Bell
+                className="h-5 w-5 text-slate-600"
+                aria-hidden="true"
+              />
 
               {unreadAlerts.length > 0 && (
                 <span
@@ -155,11 +179,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        alerts.forEach((alert) => {
-                          markAlertAsRead(alert.id);
-                        });
-                      }}
+                      onClick={handleMarkAllRead}
                       className="text-xs text-emerald-600 hover:text-emerald-700"
                     >
                       Mark all read
@@ -179,7 +199,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                         key={alert.id}
                         onClick={() => markAlertAsRead(alert.id)}
                         className={cn(
-                          'block w-full cursor-pointer border-b border-slate-50 p-4 text-left hover:bg-slate-50',
+                          'block w-full border-b border-slate-50 p-4 text-left hover:bg-slate-50',
                           alert.severity === 'error' && 'bg-red-50',
                           alert.severity === 'warning' && 'bg-yellow-50'
                         )}
@@ -203,10 +223,12 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setShowUserMenu((visible) => !visible)}
+              onClick={() =>
+                setShowUserMenu((visible) => !visible)
+              }
               aria-label="Open user menu"
               aria-expanded={showUserMenu}
-              className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100"
+              className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-slate-100"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500">
                 <span className="text-xs font-semibold text-white">
@@ -237,7 +259,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                     onClick={() => setShowUserMenu(false)}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                   >
-                    <User className="h-4 w-4" />
+                    <User
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    />
                     Profile
                   </button>
 
@@ -246,7 +271,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                     onClick={handleLogout}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    />
                     Logout
                   </button>
                 </div>
@@ -260,4 +288,3 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 };
 
 export default Header;
-```

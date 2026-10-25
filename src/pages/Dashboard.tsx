@@ -19,6 +19,7 @@ import { useAppStore } from '../store';
 import { formatCurrency, formatNumber, getActionCardColor } from '../utils/helpers';
 import { cn } from '../utils/cn';
 import { supabase } from '../lib/supabase';
+import { getIndicativeFxRate } from '../lib/fxRates';
 import VoiceUsageWidget from '../components/subscription/VoiceUsageWidget';
 import type { Database } from '../lib/database.types';
 import {
@@ -179,29 +180,18 @@ export const Dashboard: React.FC = () => {
         return;
       }
 
-      // No business-specific FX quote exists yet. Fetch a public indicative
-      // market rate so selecting a reporting country can work immediately.
-      // OpenAI is intentionally not used as an FX source: rates must be numeric,
-      // timestamped market data, not model-generated estimates.
+      // No saved business-specific rate exists. Use a resilient provider chain
+      // and keep the source/timestamp visible; never substitute an AI-generated number.
       try {
-        const response = await fetch(`https://open.er-api.com/v6/latest/${encodeURIComponent(baseCurrency)}`);
-        if (!response.ok) throw new Error(`Public FX provider returned HTTP ${response.status}`);
-        const payload: { result?: string; rates?: Record<string, number>; time_last_update_utc?: string; time_last_update_unix?: number } = await response.json();
-        const rate = payload.rates?.[quoteCurrency];
+        const quote = await getIndicativeFxRate(baseCurrency, quoteCurrency);
         if (cancelled) return;
-        if (payload.result !== 'success' || typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) {
-          throw new Error(`No usable public rate for ${baseCurrency}/${quoteCurrency}`);
-        }
-        const effectiveAt = payload.time_last_update_unix
-          ? new Date(payload.time_last_update_unix * 1000).toISOString()
-          : new Date().toISOString();
-        setMarketFx({ rate, source: `open.er-api.com indicative public rate (${payload.time_last_update_utc || 'timestamp unavailable'})`, effectiveAt });
-        setMarketFxMessage(`Converted to ${quoteCurrency} using an indicative public FX rate. Verify the quote in Global Market before using it for accounting, tax or settlement.`);
-      } catch {
+        setMarketFx({ rate: quote.rate, source: quote.source, effectiveAt: quote.effectiveAt });
+        setMarketFxMessage(`Converted to ${quoteCurrency} using ${quote.source}. Updated ${new Date(quote.effectiveAt).toLocaleString()} . This is indicative only; verify before accounting, tax or settlement.`);
+      } catch (lookupError) {
         if (cancelled) return;
-        setMarketFxMessage(error
-          ? `Public FX lookup failed and no saved ${baseCurrency}/${quoteCurrency} rate is available. Currency totals are hidden rather than guessed.`
-          : `No saved or public ${baseCurrency}/${quoteCurrency} rate is available. Currency totals are hidden rather than guessed.`);
+        setMarketFxMessage(lookupError instanceof Error
+          ? `${lookupError.message} Currency totals are hidden rather than guessed.`
+          : `No current ${baseCurrency}/${quoteCurrency} rate is available. Currency totals are hidden rather than guessed.`);
       }
     };
     void loadMarketRate();

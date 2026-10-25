@@ -1,3 +1,5 @@
+import { getIndicativeFxRate } from './fxRates';
+
 export interface PricingMarket {
   countryCode: string;
   countryName: string;
@@ -39,44 +41,67 @@ export interface GlobalPriceQuote {
   expiresAt: string;
 }
 
-interface ErApiResponse {
-  result?: string;
-  base_code?: string;
-  rates?: Record<string, number>;
-  time_last_update_utc?: string;
-}
-
 interface CoinGeckoResponse {
   tether?: { usd?: number };
+}
+interface CoinbaseResponse {
+  data?: { amount?: string; base?: string; currency?: string };
+}
+
+async function getIndicativeUsdtUsd(): Promise<{ rate: number; source: string; fetchedAt: string }> {
+  const attempts = [
+    async () => {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd', {
+        cache: 'no-store', signal: AbortSignal.timeout(6500),
+      });
+      if (!response.ok) throw new Error(`CoinGecko HTTP ${response.status}`);
+      const payload = await response.json() as CoinGeckoResponse;
+      const rate = payload.tether?.usd;
+      if (typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) throw new Error('CoinGecko returned no valid USDT/USD quote');
+      return { rate, source: 'CoinGecko Tether/USD market quote', fetchedAt: new Date().toISOString() };
+    },
+    async () => {
+      const response = await fetch('https://api.coinbase.com/v2/prices/USDT-USD/spot', {
+        cache: 'no-store', signal: AbortSignal.timeout(6500),
+      });
+      if (!response.ok) throw new Error(`Coinbase HTTP ${response.status}`);
+      const payload = await response.json() as CoinbaseResponse;
+      const rate = Number(payload.data?.amount);
+      if (!Number.isFinite(rate) || rate <= 0) throw new Error('Coinbase returned no valid USDT/USD quote');
+      return { rate, source: 'Coinbase USDT/USD spot quote', fetchedAt: new Date().toISOString() };
+    },
+  ];
+  const errors: string[] = [];
+  for (const attempt of attempts) {
+    try { return await attempt(); }
+    catch (error) { errors.push(error instanceof Error ? error.message : 'request failed'); }
+  }
+  throw new Error(`Live USDT/USD market data is unavailable. ${errors.join('; ')}`);
 }
 
 /** Indicative display quote only. Server/admin must verify the amount actually received before activation. */
 export async function getGlobalPriceQuote(baseAmountNgn: number, currency: string): Promise<GlobalPriceQuote> {
-  const [fxResponse, cryptoResponse] = await Promise.all([
-    fetch('https://open.er-api.com/v6/latest/NGN', { cache: 'no-store' }),
-    fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=usd', { cache: 'no-store' }),
+  if (!Number.isFinite(baseAmountNgn) || baseAmountNgn <= 0) throw new Error('The subscription plan amount is invalid.');
+  const [localFx, usdFx, crypto] = await Promise.all([
+    getIndicativeFxRate('NGN', currency),
+    getIndicativeFxRate('NGN', 'USD'),
+    getIndicativeUsdtUsd(),
   ]);
-  if (!fxResponse.ok) throw new Error('Live currency rates are temporarily unavailable.');
-  if (!cryptoResponse.ok) throw new Error('Live USDT market quote is temporarily unavailable.');
-  const fx = await fxResponse.json() as ErApiResponse;
-  const crypto = await cryptoResponse.json() as CoinGeckoResponse;
-  const rate = currency === 'NGN' ? 1 : fx.rates?.[currency];
-  const usdPerUsdt = crypto.tether?.usd;
-  if (!rate || !Number.isFinite(rate) || rate <= 0) throw new Error(`A live NGN/${currency} exchange rate is unavailable.`);
-  if (!usdPerUsdt || !Number.isFinite(usdPerUsdt) || usdPerUsdt <= 0) throw new Error('A live USDT/USD quote is unavailable.');
-  const localAmount = baseAmountNgn * rate;
-  const usdAmount = baseAmountNgn * (fx.rates?.USD || 0);
-  if (!Number.isFinite(usdAmount) || usdAmount <= 0) throw new Error('The USD conversion rate is unavailable.');
+  const localAmount = baseAmountNgn * localFx.rate;
+  const usdAmount = baseAmountNgn * usdFx.rate;
+  if (!Number.isFinite(localAmount) || localAmount <= 0 || !Number.isFinite(usdAmount) || usdAmount <= 0) {
+    throw new Error('The current currency conversion quote is invalid.');
+  }
   const now = Date.now();
   return {
     baseAmountNgn,
     localAmount,
     localCurrency: currency,
-    usdtAmount: usdAmount / usdPerUsdt,
-    ngnPerLocal: 1 / rate,
-    usdPerUsdt,
-    source: 'open.er-api.com + CoinGecko Tether/USD',
-    fetchedAt: fx.time_last_update_utc || new Date(now).toISOString(),
+    usdtAmount: usdAmount / crypto.rate,
+    ngnPerLocal: 1 / localFx.rate,
+    usdPerUsdt: crypto.rate,
+    source: `${localFx.source}; ${usdFx.source}; ${crypto.source}`,
+    fetchedAt: [localFx.effectiveAt, usdFx.effectiveAt, crypto.fetchedAt].sort()[0],
     expiresAt: new Date(now + 5 * 60 * 1000).toISOString(),
   };
 }

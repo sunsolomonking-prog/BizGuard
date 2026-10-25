@@ -247,7 +247,7 @@ export const Subscription: React.FC = () => {
               <button type="button" onClick={() => setPaymentMethod('bank_transfer')} className={`rounded-lg px-3 py-2.5 text-sm font-black ${paymentMethod === 'bank_transfer' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}>Bank transfer</button>
               <button type="button" onClick={() => setPaymentMethod('usdt_erc20')} className={`rounded-lg px-3 py-2.5 text-sm font-black ${paymentMethod === 'usdt_erc20' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}>USDT · ERC-20</button>
             </div>
-            <PaymentAccountDetails amount={getPlanDefinition(requestPlan).monthlyPrice} compact={true} showInstructions={true} />
+            <PaymentAccountDetails amount={getPlanDefinition(requestPlan).monthlyPrice} compact={true} showInstructions={true} selectedMethod={paymentMethod} />
             <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
               <p className="text-xs font-black uppercase tracking-wide text-cyan-800">Global pricing quote</p>
               {quoteLoading && <p className="mt-2 text-sm text-slate-600">Getting current FX and USDT market rates…</p>}
@@ -261,7 +261,7 @@ export const Subscription: React.FC = () => {
             </div>
             {paymentMethod === 'usdt_erc20' && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
               <p className="font-black">Crypto payment verification</p>
-              <p className="mt-1 leading-6">Send USDT on Ethereum mainnet (ERC-20) only. The displayed plan price is in NGN; confirm the exact USDT amount with BizGuard support before sending. Your subscription remains pending until an administrator verifies the transaction on Etherscan, checks the destination wallet and received amount, and approves it.</p>
+              <p className="mt-1 leading-6">Send USDT on Ethereum mainnet (ERC-20) only. Use the displayed USDT figure as an indicative quote and refresh it immediately before transferring. The final received amount can vary with market movement and network fees; if the quote is unavailable or unclear, contact BizGuard support before sending. Your subscription remains pending until an administrator verifies the transaction on Etherscan, checks the destination wallet and received amount, and approves it.</p>
             </div>}
             <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
               <p className="font-black">After you make the transfer</p>

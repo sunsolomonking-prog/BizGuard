@@ -1,6 +1,5 @@
 import { claudeProvider } from './claude';
 import { geminiProvider } from './gemini';
-import { localAIProvider } from './local';
 import { openAIProvider } from './openai';
 import type { AIProvider, AIProviderName } from './types';
 // BizGuard's default path is OpenAI-backed. The OpenAI adapter retains a safe

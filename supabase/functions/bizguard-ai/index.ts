@@ -16,7 +16,7 @@ async function restSelectOne(baseUrl: string, key: string, table: string, select
   url.searchParams.set('select', select);
   Object.entries(filters).forEach(([name, value]) => url.searchParams.set(name, value));
   url.searchParams.set('limit', '1');
-  const response = await fetch(url, { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+  const response = await fetch(url, { headers: { apikey: key } });
   if (!response.ok) return { error: `Membership lookup failed for ${table} (${response.status}).` };
   const rows = await response.json();
   return { row: Array.isArray(rows) ? rows[0] || null : null };
@@ -71,7 +71,7 @@ Deno.serve(async (request) => {
     const [legacyResult, profileResult, memberResult] = await Promise.all([
       restSelectOne(supabaseUrl, serviceKey, 'users', 'id,email,business_id,role', { id: `eq.${user.id}` }),
       restSelectOne(supabaseUrl, serviceKey, 'profiles', 'id,email,business_id,role', { id: `eq.${user.id}` }),
-      restSelectOne(supabaseUrl, serviceKey, 'business_members', 'id,user_id,business_id,role,status', { user_id: `eq.${user.id}`, status: 'eq.active' }),
+      restSelectOne(supabaseUrl, serviceKey, 'business_members', 'id,user_id,business_id,role,status', { user_id: `eq.${user.id}`, business_id: `eq.${businessId}`, status: 'eq.active' }),
     ]);
     if (legacyResult.error && profileResult.error && memberResult.error) {
       return json({ error: 'Could not verify BizGuard business access. Contact your administrator.' }, 502);

@@ -6,6 +6,7 @@ import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { FloatingGuardian } from './FloatingGuardian';
 import { QuickCaptureBar } from './QuickCaptureBar';
+import { DailyBriefingPopup } from './DailyBriefingPopup';
 import { trackFeatureUsage, trackPerformanceMetric } from '../../lib/observability';
 
 export const Layout: React.FC = () => {
@@ -41,6 +42,7 @@ export const Layout: React.FC = () => {
             <QuickCaptureBar />
           </div>
           <FloatingGuardian />
+          <DailyBriefingPopup />
         </div>
       </div>
     </div>

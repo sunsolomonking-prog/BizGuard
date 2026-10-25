@@ -20,7 +20,7 @@ type RatePayload = {
  * This is display-only: it is not a settlement/accounting quote. OpenAI is
  * intentionally not treated as a numeric exchange-rate oracle.
  */
-export async function getIndicativeFxRate(baseCurrency: string, quoteCurrency: string): Promise<IndicativeFxRate> {
+export async function getIndicativeFxRate(baseCurrency: string, quoteCurrency: string, allowStaleFallback = false): Promise<IndicativeFxRate> {
   const base = baseCurrency.trim().toUpperCase();
   const quote = quoteCurrency.trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(base) || !/^[A-Z]{3}$/.test(quote)) {
@@ -61,16 +61,29 @@ export async function getIndicativeFxRate(baseCurrency: string, quoteCurrency: s
       if (typeof parsed.rate !== 'number' || !Number.isFinite(parsed.rate) || parsed.rate <= 0) {
         throw new Error(`no valid ${base}/${quote} rate in response`);
       }
-      return {
+      const result: IndicativeFxRate = {
         baseCurrency: base,
         quoteCurrency: quote,
         rate: parsed.rate,
         source: `${provider.name} indicative rate`,
         effectiveAt: parsed.timestamp && !Number.isNaN(Date.parse(parsed.timestamp)) ? new Date(parsed.timestamp).toISOString() : new Date().toISOString(),
       };
+      try {
+        if (typeof window !== 'undefined') window.localStorage.setItem(`bizguard-fx:${base}:${quote}`, JSON.stringify({ ...result, cachedAt: new Date().toISOString() }));
+      } catch { /* Caching is optional and must never block a live quote. */ }
+      return result;
     } catch (error) {
       failures.push(`${provider.name}: ${error instanceof Error ? error.message : 'request failed'}`);
     }
+  }
+  if (allowStaleFallback) {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(`bizguard-fx:${base}:${quote}`) : null;
+      const cached = raw ? JSON.parse(raw) as IndicativeFxRate & { cachedAt?: string } : null;
+      if (cached && Number.isFinite(cached.rate) && cached.rate > 0 && cached.baseCurrency === base && cached.quoteCurrency === quote) {
+        return { ...cached, source: `Cached last-known rate (stale) · ${cached.source}` };
+      }
+    } catch { /* Ignore invalid cached data. */ }
   }
   throw new Error(`Could not load ${base}/${quote} FX rate from any configured provider. ${failures.join('; ')}`);
 }

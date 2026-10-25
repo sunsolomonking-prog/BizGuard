@@ -7,6 +7,37 @@ import { toAppBusiness } from '../lib/business';
 import { roleLabel } from '../lib/rbac';
 import { getGlobalMarketPreferences, saveGlobalMarketPreferences, type GlobalMarketPreferences, BIZGUARD_SUPPORTED_LOCALES } from '../lib/globalization';
 
+const GLOBAL_MARKET_COUNTRIES = [
+  { code: 'NG', name: 'Nigeria', currency: 'NGN', timezone: 'Africa/Lagos', locale: 'en' },
+  { code: 'NO', name: 'Norway', currency: 'NOK', timezone: 'Europe/Oslo', locale: 'en' },
+  { code: 'US', name: 'United States', currency: 'USD', timezone: 'America/New_York', locale: 'en' },
+  { code: 'GB', name: 'United Kingdom', currency: 'GBP', timezone: 'Europe/London', locale: 'en' },
+  { code: 'IE', name: 'Ireland', currency: 'EUR', timezone: 'Europe/Dublin', locale: 'en' },
+  { code: 'DE', name: 'Germany', currency: 'EUR', timezone: 'Europe/Berlin', locale: 'de' },
+  { code: 'FR', name: 'France', currency: 'EUR', timezone: 'Europe/Paris', locale: 'fr' },
+  { code: 'PT', name: 'Portugal', currency: 'EUR', timezone: 'Europe/Lisbon', locale: 'pt' },
+  { code: 'ES', name: 'Spain', currency: 'EUR', timezone: 'Europe/Madrid', locale: 'es' },
+  { code: 'CA', name: 'Canada', currency: 'CAD', timezone: 'America/Toronto', locale: 'en' },
+  { code: 'AU', name: 'Australia', currency: 'AUD', timezone: 'Australia/Sydney', locale: 'en' },
+  { code: 'NZ', name: 'New Zealand', currency: 'NZD', timezone: 'Pacific/Auckland', locale: 'en' },
+  { code: 'IN', name: 'India', currency: 'INR', timezone: 'Asia/Kolkata', locale: 'en' },
+  { code: 'KE', name: 'Kenya', currency: 'KES', timezone: 'Africa/Nairobi', locale: 'en' },
+  { code: 'GH', name: 'Ghana', currency: 'GHS', timezone: 'Africa/Accra', locale: 'en' },
+  { code: 'ZA', name: 'South Africa', currency: 'ZAR', timezone: 'Africa/Johannesburg', locale: 'en' },
+  { code: 'JP', name: 'Japan', currency: 'JPY', timezone: 'Asia/Tokyo', locale: 'en' },
+  { code: 'CN', name: 'China', currency: 'CNY', timezone: 'Asia/Shanghai', locale: 'en' },
+  { code: 'CH', name: 'Switzerland', currency: 'CHF', timezone: 'Europe/Zurich', locale: 'en' },
+  { code: 'AE', name: 'United Arab Emirates', currency: 'AED', timezone: 'Asia/Dubai', locale: 'en' },
+  { code: 'BR', name: 'Brazil', currency: 'BRL', timezone: 'America/Sao_Paulo', locale: 'pt' },
+  { code: 'MX', name: 'Mexico', currency: 'MXN', timezone: 'America/Mexico_City', locale: 'es' },
+  { code: 'SG', name: 'Singapore', currency: 'SGD', timezone: 'Asia/Singapore', locale: 'en' },
+  { code: 'SE', name: 'Sweden', currency: 'SEK', timezone: 'Europe/Stockholm', locale: 'en' },
+  { code: 'DK', name: 'Denmark', currency: 'DKK', timezone: 'Europe/Copenhagen', locale: 'en' },
+  { code: 'PL', name: 'Poland', currency: 'PLN', timezone: 'Europe/Warsaw', locale: 'en' },
+] as const;
+
+type GlobalMarketCountry = (typeof GLOBAL_MARKET_COUNTRIES)[number];
+
 interface BusinessForm {
   name: string;
   industry: string;
@@ -138,11 +169,34 @@ export const Settings: React.FC = () => {
 
       <form
         id="global-market-preferences"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
+          if (!currentBusiness?.id || !user?.id) {
+            toast.error('Open a business workspace and sign in before saving regional preferences.');
+            return;
+          }
           const saved = saveGlobalMarketPreferences(globalPreferences);
+          const { error } = await supabase.from('global_market_preferences').upsert({
+            business_id: currentBusiness.id,
+            user_id: user.id,
+            reporting_currency: saved.reportingCurrency || currentBusiness.currency || 'NGN',
+            locale: saved.locale,
+            country_code: saved.countryCode || null,
+            timezone: saved.timezone || null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'business_id,user_id' });
+          if (error) {
+            toast.error(`Could not save regional preferences: ${error.message}`);
+            return;
+          }
           setGlobalPreferences(saved);
-          toast.success('Your regional display preferences were saved on this device.');
+          await supabase.from('global_market_audit_events').insert({
+            business_id: currentBusiness.id,
+            actor_id: user.id,
+            event_type: 'preference_updated',
+            details: { country_code: saved.countryCode || null, reporting_currency: saved.reportingCurrency || currentBusiness.currency || 'NGN', locale: saved.locale, timezone: saved.timezone || null },
+          });
+          toast.success('Regional preferences saved to your BizGuard account.');
         }}
         className="overflow-hidden rounded-xl border border-cyan-200 bg-white shadow-sm"
       >
@@ -192,14 +246,34 @@ export const Settings: React.FC = () => {
             </select>
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Country or market code (optional)</span>
-            <input
+            <span className="text-sm font-medium text-slate-700">Country / market</span>
+            <select
               value={globalPreferences.countryCode || ''}
-              onChange={(event) => setGlobalPreferences({ ...globalPreferences, countryCode: event.target.value.toUpperCase().slice(0, 2) })}
-              placeholder="e.g. NG, GB, US"
-              maxLength={2}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2"
-            />
+              onChange={(event) => {
+                const selected = GLOBAL_MARKET_COUNTRIES.find((country) => country.code === event.target.value);
+                if (!selected) {
+                  setGlobalPreferences({ ...globalPreferences, countryCode: undefined });
+                  return;
+                }
+                const supportedLocale = BIZGUARD_SUPPORTED_LOCALES.includes(selected.locale as GlobalMarketPreferences['locale'])
+                  ? selected.locale as GlobalMarketPreferences['locale']
+                  : 'en';
+                setGlobalPreferences({
+                  ...globalPreferences,
+                  countryCode: selected.code,
+                  reportingCurrency: selected.currency,
+                  timezone: selected.timezone,
+                  locale: supportedLocale,
+                });
+              }}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              <option value="">Choose a country</option>
+              {GLOBAL_MARKET_COUNTRIES.map((country) => (
+                <option key={country.code} value={country.code}>{country.name} — {country.currency}</option>
+              ))}
+            </select>
+            <span className="text-xs text-slate-500">Selecting a country sets your default reporting currency and time zone. It does not change historic transactions or payment settlement currency.</span>
           </label>
           <label className="space-y-2">
             <span className="text-sm font-medium text-slate-700">Time zone (optional)</span>
@@ -213,7 +287,7 @@ export const Settings: React.FC = () => {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-cyan-100 px-6 py-4">
           <p className="max-w-2xl text-xs text-slate-500">
-            This first increment saves display preferences in this browser only. It does not perform foreign-exchange conversion or change the business operating currency.
+            These preferences are saved to your BizGuard account and browser. Currency conversion is applied only where supported by recorded FX evidence; this does not change the business operating currency or rewrite historical transactions.
           </p>
           <button type="submit" className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-800">Save Regional Preferences</button>
         </div>

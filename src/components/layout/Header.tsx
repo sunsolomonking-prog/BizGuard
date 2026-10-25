@@ -8,15 +8,12 @@ import {
   User,
   LogOut,
   Globe2,
-  ShieldCheck,
   Sparkles,
   Volume2,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { signOut, supabase } from '../../lib/supabase';
-import { useSuperAdminAccess } from '../../lib/adminAccess';
 import toast from 'react-hot-toast';
 import { getExecutiveDailyBriefing } from '../../lib/neuralCore';
 
@@ -67,7 +64,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     setUser,
     currentBusiness,
   } = useAppStore();
-  const { isSuperAdmin } = useSuperAdminAccess(user?.role);
 
   const [countryCode, setCountryCode] = React.useState('');
   const [savingCountry, setSavingCountry] = React.useState(false);
@@ -111,8 +107,29 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     setSavingCountry(false);
     if (error) {
       setCountryError('Could not save country. Open Global Market Readiness and try again.');
+      toast.error('Could not save country and regional preferences.');
       return;
     }
+
+    // Publish the saved market preference for other signed-in workspace modules.
+    // Monetary values remain stored in their original currency; this preference controls display/reporting only.
+    window.localStorage.setItem('bizguard-market-preference', JSON.stringify({
+      countryCode: country.code,
+      reportingCurrency: country.currency,
+      locale: country.locale,
+      timezone: country.timezone,
+      updatedAt: new Date().toISOString(),
+    }));
+    document.documentElement.lang = country.locale;
+    window.dispatchEvent(new CustomEvent('bizguard:market-preference-changed', {
+      detail: {
+        countryCode: country.code,
+        reportingCurrency: country.currency,
+        locale: country.locale,
+        timezone: country.timezone,
+      },
+    }));
+    toast.success(`Market preference saved: ${country.name} · ${country.currency}`);
   };
 
   const [dailyStrategyEnabled, setDailyStrategyEnabled] = React.useState(false);
@@ -281,18 +298,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               {HEADER_COUNTRIES.map((country) => <option key={country.code} value={country.code}>{country.name} ({country.currency})</option>)}
             </select>
           </div>
-
-          {isSuperAdmin && (
-            <Link
-              to="/admin"
-              aria-label="Open Admin Portal"
-              title="Admin Portal"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-amber-400 bg-slate-950 px-3 py-2 text-[10px] font-black tracking-wide text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 sm:px-4 sm:text-xs"
-            >
-              <ShieldCheck className="h-4 w-4 text-amber-300" aria-hidden="true" />
-              <span>ADMIN PORTAL</span>
-            </Link>
-          )}
 
           {/* Theme toggle */}
           <button

@@ -116,7 +116,7 @@ Deno.serve(async (request) => {
         body: JSON.stringify({
           model,
           temperature: 0.2,
-          max_tokens: 1400,
+          max_completion_tokens: 1400,
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: systemPrompt },

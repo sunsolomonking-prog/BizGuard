@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Search, Menu, Sun, Moon, User, LogOut, ShieldCheck } from 'lucide-react';
+import { Bell, Search, Menu, Sun, Moon, User, LogOut } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { Link, useLocation } from 'react-router-dom';
@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   : 'border-amber-400 bg-slate-950 text-white shadow-amber-100 hover:bg-slate-800'
               )}
             >
-              <ShieldCheck className="h-4 w-4" />
+              <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center font-bold">✓</span>
               <span className="sm:hidden">ADMIN</span>
               <span className="hidden sm:inline">ADMIN PORTAL</span>
             </Link>

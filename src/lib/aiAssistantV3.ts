@@ -259,6 +259,83 @@ export const generateAgentResponse = (mode: AIAgentMode, question: string, conte
   };
 };
 
+/**
+ * Use the authenticated server-side OpenAI gateway for conversational agent
+ * responses. Only a compact business summary is sent; raw customer/contact
+ * records and payment details are not forwarded wholesale.
+ */
+export const generateOpenAIAgentResponse = async (
+  businessId: string,
+  mode: AIAgentMode,
+  question: string,
+  context: BusinessAIContext,
+): Promise<AgentResponse> => {
+  const localFallback = () => generateAgentResponse(mode, question, context);
+  const revenue = context.sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+  const tax = context.sales.reduce((sum, sale) => sum + Number(sale.tax || 0), 0);
+  const discounts = context.sales.reduce((sum, sale) => sum + Number(sale.discount || 0), 0);
+  const inventoryCost = context.products.reduce((sum, product) => sum + Number(product.cost_price || 0) * Number(product.quantity || 0), 0);
+  const outstanding = context.invoices.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
+  const lowStock = context.products.filter((product) => Number(product.quantity) <= Number(product.reorder_level));
+  const topProducts = [...context.saleItems.reduce((map, item) => {
+    const current = map.get(item.product_id) || { name: item.product_name, quantity: 0, revenue: 0 };
+    current.quantity += Number(item.quantity || 0);
+    current.revenue += Number(item.total || 0);
+    map.set(item.product_id, current);
+    return map;
+  }, new Map<string, { name: string; quantity: number; revenue: number }>()).values()]
+    .sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+  const compactContext = {
+    salesWindowDays: 120,
+    salesCount: context.sales.length,
+    revenue,
+    tax,
+    discounts,
+    estimatedInventoryCost: inventoryCost,
+    productCount: context.products.length,
+    inventory: context.products.slice(0, 100).map((product) => ({
+      name: product.name, sku: product.sku, quantity: product.quantity,
+      reorderLevel: product.reorder_level, costPrice: product.cost_price, sellingPrice: product.selling_price,
+    })),
+    lowStockProducts: lowStock.slice(0, 30).map((product) => ({ name: product.name, quantity: product.quantity, reorderLevel: product.reorder_level })),
+    topProducts,
+    customerCount: context.customers.length,
+    customersWithBalances: context.customers.filter((customer) => Number(customer.current_balance) > 0).length,
+    totalCustomerBalances: context.customers.reduce((sum, customer) => sum + Math.max(0, Number(customer.current_balance || 0)), 0),
+    invoiceCount: context.invoices.length,
+    outstandingInvoices: outstanding,
+    overdueInvoices: context.invoices.filter((invoice) => Number(invoice.balance) > 0 && new Date(invoice.due_date) < new Date()).length,
+    paymentCount: context.payments.length,
+    businessMemory: context.memories.slice(0, 20).map((memory) => ({ memory_key: memory.memory_key, memory_value: memory.memory_value, confidence: memory.confidence })),
+  };
+
+  try {
+    const { data, error } = await supabase.functions.invoke<AgentResponse>('bizguard-ai', {
+      body: {
+        business_id: businessId,
+        operation: 'agentResponse',
+        mode,
+        prompt: question,
+        context: compactContext,
+      },
+    });
+    if (error) throw error;
+    if (!data || typeof data.summary !== 'string' || !Array.isArray(data.recommendations)) {
+      throw new Error('OpenAI returned an invalid agent response.');
+    }
+    return {
+      title: typeof data.title === 'string' ? data.title : agentModeLabel(mode),
+      summary: data.summary,
+      recommendations: data.recommendations.filter((item) => typeof item === 'string').slice(0, 8),
+      metrics: data.metrics && typeof data.metrics === 'object' ? data.metrics : {},
+      priority: ['low', 'medium', 'high', 'urgent'].includes(data.priority) ? data.priority : 'medium',
+    };
+  } catch (error) {
+    console.warn('BizGuard AI gateway unavailable; using local rule-based fallback.', error);
+    return localFallback();
+  }
+};
+
 export const agentModeLabel = (mode: AIAgentMode) => {
   const labels: Record<AIAgentMode, string> = {
     guardian: 'Business Guardian',

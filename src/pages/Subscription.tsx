@@ -22,6 +22,7 @@ export const Subscription: React.FC = () => {
   });
   const [globalQuote, setGlobalQuote] = React.useState<GlobalPriceQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = React.useState(false);
+  const [quoteRefreshKey, setQuoteRefreshKey] = React.useState(0);
   const [quoteError, setQuoteError] = React.useState<string | null>(null);
   const [note, setNote] = React.useState('');
   const [proof, setProof] = React.useState<File | null>(null);
@@ -50,7 +51,7 @@ export const Subscription: React.FC = () => {
       .catch((error) => { if (!cancelled) setQuoteError(error instanceof Error ? error.message : 'Live quote unavailable.'); })
       .finally(() => { if (!cancelled) setQuoteLoading(false); });
     return () => { cancelled = true; };
-  }, [requestPlan, selectedMarket.currency]);
+  }, [requestPlan, selectedMarket.currency, quoteRefreshKey]);
 
   const loadSubscription = React.useCallback(async () => {
     if (!businessId) return;
@@ -256,7 +257,7 @@ export const Subscription: React.FC = () => {
                 <div className="rounded-xl bg-white p-3"><p className="text-xs text-slate-500">Indicative crypto amount</p><p className="mt-1 text-xl font-black text-slate-950">{globalQuote.usdtAmount.toFixed(6)} USDT</p><p className="mt-1 text-xs text-slate-500">Ethereum mainnet · ERC-20</p></div>
               </div>}
               {globalQuote && <p className="mt-3 text-xs leading-5 text-slate-600">Rate source: {globalQuote.source}. Rate timestamp: {globalQuote.fetchedAt}. Quote expires: {new Date(globalQuote.expiresAt).toLocaleTimeString(selectedMarket.locale)}. This is an indicative display quote, not a guaranteed exchange or settlement rate. Admin must verify the amount received before activation.</p>}
-              {paymentMethod === 'usdt_erc20' && !globalQuote && <button type="button" onClick={() => { setPricingMarket(selectedMarket.countryCode); setQuoteError(null); setGlobalQuote(null); setRequestPlan(requestPlan); }} className="mt-3 rounded-lg border border-cyan-300 bg-white px-3 py-2 text-xs font-bold text-cyan-900">Refresh quote</button>}
+              {paymentMethod === 'usdt_erc20' && !globalQuote && <button type="button" onClick={() => { setQuoteError(null); setGlobalQuote(null); setQuoteRefreshKey((value) => value + 1); }} className="mt-3 rounded-lg border border-cyan-300 bg-white px-3 py-2 text-xs font-bold text-cyan-900">Refresh quote</button>}
             </div>
             {paymentMethod === 'usdt_erc20' && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
               <p className="font-black">Crypto payment verification</p>

@@ -8,6 +8,7 @@ interface PaymentAccountDetailsProps {
   amount?: number | null;
   compact?: boolean;
   showInstructions?: boolean;
+  selectedMethod?: 'bank_transfer' | 'usdt_erc20' | 'both';
 }
 
 const copyValue = async (label: string, value: string) => {
@@ -25,13 +26,14 @@ export const PaymentAccountDetails: React.FC<PaymentAccountDetailsProps> = ({
   amount,
   compact = false,
   showInstructions = true,
+  selectedMethod = 'both',
 }) => (
   <section
     id={compact ? undefined : 'payment-account'}
     className={`space-y-4 border border-slate-200 bg-slate-50 ${compact ? 'rounded-xl p-4' : 'rounded-2xl p-5'}`}
     aria-label="BizGuard subscription payment methods"
   >
-    <div className="flex items-start gap-3">
+    {selectedMethod !== 'usdt_erc20' && (<>\n    <div className="flex items-start gap-3">
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white">
         <Landmark className="h-5 w-5" />
       </div>
@@ -74,7 +76,7 @@ export const PaymentAccountDetails: React.FC<PaymentAccountDetailsProps> = ({
       </div>
     </div>
 
-    <div className="overflow-hidden rounded-2xl border border-cyan-200 bg-white">
+    </>)}\n\n    {selectedMethod !== 'bank_transfer' && (<>\n    <div className="overflow-hidden rounded-2xl border border-cyan-200 bg-white">
       <div className="flex items-start gap-3 border-b border-cyan-100 bg-cyan-50 p-4">
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-950 text-white">
           <Wallet className="h-5 w-5" />
@@ -121,7 +123,7 @@ export const PaymentAccountDetails: React.FC<PaymentAccountDetailsProps> = ({
       <p className="border-t border-slate-100 px-4 py-3 text-xs leading-5 text-slate-500">After sending, keep the transaction hash and a screenshot of the completed transfer for administrator review.</p>
     </div>
 
-    {showInstructions && (
+    </>)}\n\n    {showInstructions && (
       <div className="flex gap-2 border-t border-slate-200 pt-4 text-xs leading-5 text-slate-500">
         <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
         Bank transfers and crypto payments must be reviewed before a paid subscription is activated.

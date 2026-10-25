@@ -427,7 +427,7 @@ export const Dashboard: React.FC = () => {
                 <button onClick={() => navigate('/sales')} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">View all <ArrowRight className="w-4 h-4" /></button>
               </div>
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+                {!hasVerifiedMarketRate ? <div className="flex h-full items-center justify-center rounded-xl bg-amber-50 p-6 text-center text-sm text-amber-800">Sales currency chart is paused until a verified {sourceCurrency}/{displayCurrency} rate is available.</div> : <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dashboard.dailySales}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
@@ -437,7 +437,7 @@ export const Dashboard: React.FC = () => {
                     <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', strokeWidth: 2 }} name="Revenue" />
                     <Line type="monotone" dataKey="sales" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', strokeWidth: 2 }} name="Sales Count" />
                   </LineChart>
-                </ResponsiveContainer>
+                </ResponsiveContainer>}
               </div>
             </div>
 
@@ -445,7 +445,7 @@ export const Dashboard: React.FC = () => {
               <h2 className="text-lg font-semibold text-slate-800">Inventory Value by Category</h2>
               <p className="text-sm text-slate-500 mb-6">Current live product valuation</p>
               <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
+                {!hasVerifiedMarketRate ? <div className="flex h-full items-center justify-center rounded-xl bg-amber-50 p-6 text-center text-sm text-amber-800">Inventory valuation is paused until a verified {sourceCurrency}/{displayCurrency} rate is available.</div> : <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={dashboard.categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={5} dataKey="value">
                       {dashboard.categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
@@ -453,7 +453,7 @@ export const Dashboard: React.FC = () => {
                     <Tooltip formatter={(value) => hasVerifiedMarketRate ? money(Number(value || 0)) : `Rate unavailable · ${displayCurrency}`} />
                     <Legend />
                   </PieChart>
-                </ResponsiveContainer>
+                </ResponsiveContainer>}
               </div>
             </div>
           </div>
@@ -462,14 +462,14 @@ export const Dashboard: React.FC = () => {
             <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-800 mb-4">Top Products</h2>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
+                {!hasVerifiedMarketRate ? <div className="flex h-full items-center justify-center rounded-xl bg-amber-50 p-6 text-center text-sm text-amber-800">Product revenue chart is paused until a verified {sourceCurrency}/{displayCurrency} rate is available.</div> : <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dashboard.topProducts} layout="vertical">
                     <XAxis type="number" hide />
                     <YAxis type="category" dataKey="name" width={95} stroke="#64748b" fontSize={11} />
                     <Tooltip formatter={(value) => money(Number(value || 0))} />
                     <Bar dataKey="revenue" fill="#10b981" radius={[0, 8, 8, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                </ResponsiveContainer>}
               </div>
             </div>
 

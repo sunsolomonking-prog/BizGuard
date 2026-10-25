@@ -40,7 +40,7 @@ Deno.serve(async (request) => {
       } catch { return ''; }
     })();
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
-    const model = Deno.env.get('OPENAI_VISION_MODEL') || 'gpt-6-luna';
+    const model = Deno.env.get('OPENAI_VISION_MODEL') || 'gpt-4.1-mini';
     const requestTimeoutMs = 25_000;
     if (!supabaseUrl || !serviceKey || !openaiKey) return json({ error: 'Vision service is not configured on the server. Required secrets: Supabase secret key, OPENAI_API_KEY.' }, 503);
 

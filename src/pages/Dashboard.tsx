@@ -167,19 +167,41 @@ export const Dashboard: React.FC = () => {
         .order('effective_at', { ascending: false })
         .limit(30);
       if (cancelled) return;
-      if (error) {
-        setMarketFxMessage(`Showing original ${baseCurrency} values: no verified ${quoteCurrency} exchange rate could be loaded.`);
+      const rows = data || [];
+      const direct = rows.find((row) => row.base_currency === baseCurrency && row.quote_currency === quoteCurrency && Number(row.rate) > 0);
+      const reverse = rows.find((row) => row.base_currency === quoteCurrency && row.quote_currency === baseCurrency && Number(row.rate) > 0);
+      if (direct) {
+        setMarketFx({ rate: Number(direct.rate), source: direct.source, effectiveAt: direct.effective_at });
         return;
       }
-      const rows = data || [];
-      const direct = rows.find((row) => row.base_currency === baseCurrency && row.quote_currency === quoteCurrency);
-      const reverse = rows.find((row) => row.base_currency === quoteCurrency && row.quote_currency === baseCurrency);
-      if (direct && Number(direct.rate) > 0) {
-        setMarketFx({ rate: Number(direct.rate), source: direct.source, effectiveAt: direct.effective_at });
-      } else if (reverse && Number(reverse.rate) > 0) {
+      if (reverse) {
         setMarketFx({ rate: 1 / Number(reverse.rate), source: reverse.source, effectiveAt: reverse.effective_at });
-      } else {
-        setMarketFxMessage(`Showing original ${baseCurrency} values. Add and verify a ${baseCurrency}/${quoteCurrency} rate in Global Market before reporting in ${quoteCurrency}.`);
+        return;
+      }
+
+      // No business-specific FX quote exists yet. Fetch a public indicative
+      // market rate so selecting a reporting country can work immediately.
+      // OpenAI is intentionally not used as an FX source: rates must be numeric,
+      // timestamped market data, not model-generated estimates.
+      try {
+        const response = await fetch(`https://open.er-api.com/v6/latest/${encodeURIComponent(baseCurrency)}`);
+        if (!response.ok) throw new Error(`Public FX provider returned HTTP ${response.status}`);
+        const payload: { result?: string; rates?: Record<string, number>; time_last_update_utc?: string; time_last_update_unix?: number } = await response.json();
+        const rate = payload.rates?.[quoteCurrency];
+        if (cancelled) return;
+        if (payload.result !== 'success' || typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) {
+          throw new Error(`No usable public rate for ${baseCurrency}/${quoteCurrency}`);
+        }
+        const effectiveAt = payload.time_last_update_unix
+          ? new Date(payload.time_last_update_unix * 1000).toISOString()
+          : new Date().toISOString();
+        setMarketFx({ rate, source: `open.er-api.com indicative public rate (${payload.time_last_update_utc || 'timestamp unavailable'})`, effectiveAt });
+        setMarketFxMessage(`Converted to ${quoteCurrency} using an indicative public FX rate. Verify the quote in Global Market before using it for accounting, tax or settlement.`);
+      } catch {
+        if (cancelled) return;
+        setMarketFxMessage(error
+          ? `Public FX lookup failed and no saved ${baseCurrency}/${quoteCurrency} rate is available. Currency totals are hidden rather than guessed.`
+          : `No saved or public ${baseCurrency}/${quoteCurrency} rate is available. Currency totals are hidden rather than guessed.`);
       }
     };
     void loadMarketRate();

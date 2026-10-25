@@ -15,6 +15,7 @@ export const Subscription: React.FC = () => {
   const [isLoading, setIsLoading] = React.useState(false);
   const [requestPlan, setRequestPlan] = React.useState<SubscriptionPlanCode | null>(null);
   const [reference, setReference] = React.useState('');
+  const [paymentMethod, setPaymentMethod] = React.useState<'bank_transfer' | 'usdt_erc20'>('bank_transfer');
   const [note, setNote] = React.useState('');
   const [proof, setProof] = React.useState<File | null>(null);
   const [subscriptionError, setSubscriptionError] = React.useState<string | null>(null);
@@ -75,6 +76,7 @@ export const Subscription: React.FC = () => {
   const resetPaymentModal = () => {
     setRequestPlan(null);
     setReference('');
+    setPaymentMethod('bank_transfer');
     setNote('');
     setProof(null);
     setSubmittedRequest(null);
@@ -124,7 +126,11 @@ export const Subscription: React.FC = () => {
     submittingPaymentRef.current = true;
     setIsLoading(true);
     try {
-      const request = await createPaymentRequest({ businessId, userId: user.id, planCode: requestPlan, amountNgn: plan.monthlyPrice, reference, note, proof });
+      if (paymentMethod === 'usdt_erc20' && !/^0x[a-fA-F0-9]{64}$/.test(reference.trim())) {
+      toast.error('Enter the full Ethereum transaction hash (0x followed by 64 hexadecimal characters).');
+      return;
+    }
+    const request = await createPaymentRequest({ businessId, userId: user.id, planCode: requestPlan, amountNgn: plan.monthlyPrice, provider: paymentMethod, reference, note: paymentMethod === 'usdt_erc20' ? `USDT on Ethereum ERC-20 mainnet. ${note}`.trim() : note, proof });
       const normalized = request as PaymentRequestRecord;
       setSubmittedRequest(normalized);
       setPaymentStage('submitted');
@@ -201,12 +207,21 @@ export const Subscription: React.FC = () => {
           </div>
 
           {paymentStage === 'payment' ? <div className="mt-6 space-y-4">
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+              <button type="button" onClick={() => setPaymentMethod('bank_transfer')} className={`rounded-lg px-3 py-2.5 text-sm font-black ${paymentMethod === 'bank_transfer' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}>Bank transfer</button>
+              <button type="button" onClick={() => setPaymentMethod('usdt_erc20')} className={`rounded-lg px-3 py-2.5 text-sm font-black ${paymentMethod === 'usdt_erc20' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}>USDT · ERC-20</button>
+            </div>
             <PaymentAccountDetails amount={getPlanDefinition(requestPlan).monthlyPrice} compact={true} showInstructions={true} />
+            {paymentMethod === 'usdt_erc20' && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <p className="font-black">Crypto payment verification</p>
+              <p className="mt-1 leading-6">Send USDT on Ethereum mainnet (ERC-20) only. The displayed plan price is in NGN; confirm the exact USDT amount with BizGuard support before sending. Your subscription remains pending until an administrator verifies the transaction on Etherscan, checks the destination wallet and received amount, and approves it.</p>
+            </div>}
             <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
               <p className="font-black">After you make the transfer</p>
               <p className="mt-1 leading-6">Upload the receipt below, then tap Continue. Your request goes to the existing Admin Portal approval queue. BizGuard never activates a paid plan from the browser alone.</p>
             </div>
-            <div><label className="mb-1.5 block text-sm font-bold text-slate-700">Transfer reference <span className="font-normal text-slate-400">(optional)</span></label><input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Paste your transfer reference" className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-slate-950" /></div>
+            <div><label className="mb-1.5 block text-sm font-bold text-slate-700">{paymentMethod === 'usdt_erc20' ? 'Ethereum transaction hash' : 'Transfer reference'} {paymentMethod === 'usdt_erc20' ? <span className="text-rose-600">(required)</span> : <span className="font-normal text-slate-400">(optional)</span>}</label><input value={reference} onChange={(e) => setReference(e.target.value)} placeholder={paymentMethod === 'usdt_erc20' ? '0x… transaction hash from your wallet' : 'Paste your transfer reference'} required={paymentMethod === 'usdt_erc20'} className="w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm outline-none focus:border-slate-950" />
+              {paymentMethod === 'usdt_erc20' && <p className="mt-1.5 text-xs leading-5 text-slate-500">Use the transaction hash from the completed Ethereum mainnet transfer, not your wallet address or QR code.</p>}</div>
             <div>
               <label className="mb-1.5 block text-sm font-bold text-slate-700">Payment receipt / proof</label>
               <div className="rounded-2xl border-2 border-dashed border-cyan-300 bg-cyan-50/70 p-3 sm:p-4">

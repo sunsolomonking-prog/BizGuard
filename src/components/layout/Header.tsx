@@ -9,12 +9,16 @@ import {
   LogOut,
   Globe2,
   ShieldCheck,
+  Sparkles,
+  Volume2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
 import { signOut, supabase } from '../../lib/supabase';
 import { useSuperAdminAccess } from '../../lib/adminAccess';
+import toast from 'react-hot-toast';
+import { getExecutiveDailyBriefing } from '../../lib/neuralCore';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -111,6 +115,71 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     }
   };
 
+  const [dailyStrategyEnabled, setDailyStrategyEnabled] = React.useState(false);
+  const [dailyStrategyLoading, setDailyStrategyLoading] = React.useState(false);
+  const [dailyStrategy, setDailyStrategy] = React.useState<{ title: string; summary: string; actionPlan?: string[] } | null>(null);
+  const [showDailyStrategy, setShowDailyStrategy] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    const key = `bizguard-daily-strategy-enabled:${user.id}`;
+    setDailyStrategyEnabled(window.localStorage.getItem(key) === '1');
+  }, [user?.id]);
+
+  const runDailyStrategy = async (notify = false) => {
+    if (!businessId || dailyStrategyLoading) return;
+    setDailyStrategyLoading(true);
+    try {
+      const result = await getExecutiveDailyBriefing(businessId);
+      const briefing = { title: result.title || 'Your BizGuard Daily Strategy', summary: result.summary || 'Review today’s business signals and choose your next action.', actionPlan: result.actionPlan || [] };
+      setDailyStrategy(briefing);
+      setShowDailyStrategy(true);
+      if (notify) {
+        toast.success(`✨ Your daily strategy is ready: ${briefing.title}`, { duration: 7000 });
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('BizGuard • Your daily strategy is ready', {
+            body: briefing.summary.slice(0, 180),
+            tag: `bizguard-daily-strategy-${new Date().toISOString().slice(0, 10)}`,
+            icon: '/favicon.ico',
+          });
+        }
+      }
+    } catch {
+      toast.error('Your daily strategy could not load. Please try again.');
+    } finally {
+      setDailyStrategyLoading(false);
+    }
+  };
+
+  const enableDailyStrategy = async () => {
+    if (!user?.id) return;
+    let permission: NotificationPermission = 'default';
+    if ('Notification' in window) {
+      try { permission = await Notification.requestPermission(); } catch { permission = 'default'; }
+    }
+    const enabled = permission === 'granted' || !('Notification' in window);
+    window.localStorage.setItem(`bizguard-daily-strategy-enabled:${user.id}`, enabled ? '1' : '0');
+    setDailyStrategyEnabled(enabled);
+    if (enabled) {
+      toast.success('Daily Strategy enabled. BizGuard will prepare a strategic nudge when you open the workspace in the morning.');
+    } else {
+      toast('Browser notifications were not enabled. You can still open Daily Strategy any time.');
+    }
+  };
+
+  React.useEffect(() => {
+    if (!dailyStrategyEnabled || !user?.id || !businessId || dailyStrategyLoading) return;
+    const now = new Date();
+    const hour = now.getHours();
+    if (hour < 6 || hour >= 12) return;
+    const day = now.toLocaleDateString('en-CA');
+    const key = `bizguard-daily-strategy-last-run:${user.id}:${businessId}`;
+    if (window.localStorage.getItem(key) === day) return;
+    window.localStorage.setItem(key, day);
+    void runDailyStrategy(true);
+    // One morning briefing per user/business/day; no repeated notification loop.
+  }, [dailyStrategyEnabled, user?.id, businessId]);
+
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showUserMenu, setShowUserMenu] = React.useState(false);
 
@@ -169,7 +238,33 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         {/* Right section */}
         <div className="flex items-center gap-2">
-          {/* Global country selector — shared across BizGuard's signed-in workspace */}
+          {/* Opt-in daily strategic routine; never sends repeated unsolicited alerts. */}
+          <div className="relative hidden sm:flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => { setShowDailyStrategy(true); if (!dailyStrategy) void runDailyStrategy(false); }}
+              disabled={dailyStrategyLoading || !businessId}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-2.5 py-2 text-xs font-bold text-violet-800 transition hover:bg-violet-100 disabled:opacity-60"
+              aria-label="Open BizGuard Daily Strategy"
+              title="AI-powered morning business briefing"
+            >
+              <Sparkles className={`h-4 w-4 ${dailyStrategyLoading ? 'animate-pulse' : ''}`} aria-hidden="true" />
+              <span className="hidden lg:inline">{dailyStrategyLoading ? 'Preparing…' : 'Daily Strategy'}</span>
+            </button>
+            {!dailyStrategyEnabled && (
+              <button
+                type="button"
+                onClick={() => void enableDailyStrategy()}
+                aria-label="Enable daily strategy notifications"
+                title="Enable morning strategy notifications"
+                className="rounded-lg p-2 text-violet-700 transition hover:bg-violet-50"
+              >
+                <Volume2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+
+          {/* Global country selector — shared across BizGuard's signed-in workspace */
           <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
             <Globe2 className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
             <label className="sr-only" htmlFor="bizguard-global-country">Country / market</label>
@@ -365,6 +460,39 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           </div>
         </div>
       </div>
+
+      {showDailyStrategy && (
+        <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 pt-20 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="bizguard-daily-strategy-title">
+          <section className="w-full max-w-xl overflow-hidden rounded-3xl border border-violet-200 bg-white shadow-2xl">
+            <div className="bg-gradient-to-r from-slate-950 via-violet-950 to-indigo-900 p-5 text-white sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[.2em] text-violet-200">BizGuard intelligence briefing</p>
+                  <h2 id="bizguard-daily-strategy-title" className="mt-2 text-2xl font-black">{dailyStrategy?.title || 'Your Daily Strategy'}</h2>
+                  <p className="mt-2 text-sm text-violet-100">{dailyStrategyLoading ? 'Connecting business signals and preparing your strategic brief…' : 'Clear priorities. Better decisions. One focused day at a time.'}</p>
+                </div>
+                <button type="button" onClick={() => setShowDailyStrategy(false)} className="rounded-lg px-3 py-1 text-xl text-white/80 hover:bg-white/10" aria-label="Close daily strategy">×</button>
+              </div>
+            </div>
+            <div className="space-y-4 p-5 sm:p-6">
+              <p className="text-sm leading-6 text-slate-700">{dailyStrategy?.summary || (dailyStrategyLoading ? 'Reviewing your business performance, cash flow, inventory and opportunities.' : 'Open your Daily Strategy to prepare today’s briefing.')}</p>
+              {dailyStrategy?.actionPlan?.length ? (
+                <div>
+                  <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Your next best moves</h3>
+                  <ol className="space-y-2">{dailyStrategy.actionPlan.slice(0, 5).map((item, index) => <li key={item} className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-violet-100 text-xs font-black text-violet-800">{index + 1}</span><span>{item}</span></li>)}</ol>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => void runDailyStrategy(false)} disabled={dailyStrategyLoading} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">{dailyStrategyLoading ? 'Preparing…' : 'Refresh strategy'}</button>
+                <button type="button" onClick={() => void enableDailyStrategy()} disabled={dailyStrategyEnabled} className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-800 hover:bg-violet-100 disabled:opacity-60">{dailyStrategyEnabled ? 'Morning reminders enabled' : 'Enable morning reminders'}</button>
+                <button type="button" onClick={() => setShowDailyStrategy(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Close</button>
+              </div>
+              <p className="text-[11px] leading-5 text-slate-400">Daily reminders are opt-in and limited to one morning briefing per user, business and day while the workspace is open. Browser notifications depend on permission. This does not send email/SMS or run when the app is closed.</p>
+            </div>
+          </section>
+        </div>
+      )}
+
     </header>
   );
 };

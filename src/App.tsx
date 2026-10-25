@@ -533,6 +533,8 @@ const App: React.FC = () => {
 
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
+              {/* Dedicated User Portal entry reuses the existing business dashboard and permissions. */}
+              <Route path="portal" element={<Dashboard />} />
               <Route path="sales" element={<Sales />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="debtors" element={<Debtors />} />

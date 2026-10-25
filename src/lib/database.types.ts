@@ -12,6 +12,30 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      global_market_preferences: {
+        Row: { id: string; business_id: string; user_id: string; reporting_currency: string; locale: string; country_code: string | null; timezone: string | null; created_at: string; updated_at: string; };
+        Insert: { id?: string; business_id: string; user_id: string; reporting_currency?: string; locale?: string; country_code?: string | null; timezone?: string | null; created_at?: string; updated_at?: string; };
+        Update: { id?: string; business_id?: string; user_id?: string; reporting_currency?: string; locale?: string; country_code?: string | null; timezone?: string | null; created_at?: string; updated_at?: string; };
+        Relationships: [];
+      };
+      global_fx_rates: {
+        Row: { id: string; business_id: string; base_currency: string; quote_currency: string; rate: number; source: string; rate_kind: string; effective_at: string; recorded_by: string | null; created_at: string; };
+        Insert: { id?: string; business_id: string; base_currency: string; quote_currency: string; rate: number; source: string; rate_kind?: string; effective_at: string; recorded_by?: string | null; created_at?: string; };
+        Update: { id?: string; business_id?: string; base_currency?: string; quote_currency?: string; rate?: number; source?: string; rate_kind?: string; effective_at?: string; recorded_by?: string | null; created_at?: string; };
+        Relationships: [];
+      };
+      global_market_transactions: {
+        Row: { id: string; business_id: string; created_by: string; transaction_type: string; reference: string | null; counterparty: string | null; description: string; transaction_date: string; original_amount: number; original_currency: string; settlement_amount: number; settlement_currency: string; fx_rate: number; fx_rate_source: string; fx_rate_timestamp: string; fx_rate_id: string | null; status: string; created_at: string; updated_at: string; };
+        Insert: { id?: string; business_id: string; created_by: string; transaction_type: string; reference?: string | null; counterparty?: string | null; description: string; transaction_date?: string; original_amount: number; original_currency: string; settlement_amount: number; settlement_currency: string; fx_rate: number; fx_rate_source: string; fx_rate_timestamp: string; fx_rate_id?: string | null; status?: string; created_at?: string; updated_at?: string; };
+        Update: { id?: string; business_id?: string; created_by?: string; transaction_type?: string; reference?: string | null; counterparty?: string | null; description?: string; transaction_date?: string; original_amount?: number; original_currency?: string; settlement_amount?: number; settlement_currency?: string; fx_rate?: number; fx_rate_source?: string; fx_rate_timestamp?: string; fx_rate_id?: string | null; status?: string; created_at?: string; updated_at?: string; };
+        Relationships: [];
+      };
+      global_market_audit_events: {
+        Row: { id: string; business_id: string; actor_id: string | null; event_type: 'preference_updated' | 'fx_rate_created' | 'fx_rate_deleted' | 'report_exported' | 'global_transaction_created'; details: Json; created_at: string; };
+        Insert: { id?: string; business_id: string; actor_id?: string | null; event_type: 'preference_updated' | 'fx_rate_created' | 'fx_rate_deleted' | 'report_exported' | 'global_transaction_created'; details?: Json; created_at?: string; };
+        Update: { id?: string; business_id?: string; actor_id?: string | null; event_type?: 'preference_updated' | 'fx_rate_created' | 'fx_rate_deleted' | 'report_exported' | 'global_transaction_created'; details?: Json; created_at?: string; };
+        Relationships: [];
+      };
       system_health_events: {
         Row: { id: string; business_id: string | null; service: string; status: string; latency_ms: number | null; message: string | null; metadata: Json; created_at: string; };
         Insert: { id?: string; business_id?: string | null; service: string; status: string; latency_ms?: number | null; message?: string | null; metadata?: Json; created_at?: string; };
@@ -329,6 +353,15 @@ export interface Database {
           status: string;
           created_at: string;
           created_by: string | null;
+          transaction_currency: string | null;
+          settlement_currency: string | null;
+          settlement_amount: number | null;
+          fx_rate: number | null;
+          fx_rate_source: string | null;
+          fx_rate_timestamp: string | null;
+          reporting_currency: string | null;
+          reporting_amount: number | null;
+          fx_rate_id: string | null;
         };
         Insert: {
           id?: string;
@@ -343,6 +376,15 @@ export interface Database {
           status: string;
           created_at?: string;
           created_by: string | null;
+          transaction_currency?: string | null;
+          settlement_currency?: string | null;
+          settlement_amount?: number | null;
+          fx_rate?: number | null;
+          fx_rate_source?: string | null;
+          fx_rate_timestamp?: string | null;
+          reporting_currency?: string | null;
+          reporting_amount?: number | null;
+          fx_rate_id?: string | null;
         };
         Update: {
           id?: string;
@@ -357,6 +399,15 @@ export interface Database {
           status?: string;
           created_at?: string;
           created_by?: string | null;
+          transaction_currency?: string | null;
+          settlement_currency?: string | null;
+          settlement_amount?: number | null;
+          fx_rate?: number | null;
+          fx_rate_source?: string | null;
+          fx_rate_timestamp?: string | null;
+          reporting_currency?: string | null;
+          reporting_amount?: number | null;
+          fx_rate_id?: string | null;
         };
         Relationships: [];
       };
@@ -756,6 +807,17 @@ export interface Database {
       generate_sku: { Args: { target_business_id: string; product_category?: string | null }; Returns: string; };
       record_inventory_transaction: { Args: { p_business_id: string; p_product_id: string; p_type: string; p_quantity: number; p_notes?: string | null; p_warehouse_id?: string | null; p_batch_id?: string | null; p_reference_type?: string | null; p_reference_id?: string | null; p_unit_cost?: number; }; Returns: string; };
       check_rate_limit: { Args: { p_key: string; p_limit?: number; p_window_seconds?: number }; Returns: boolean; };
+      admin_get_my_business_account_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      admin_setup_my_business_account: {
+        Args: {
+          p_business_id?: string | null;
+          p_business_name?: string | null;
+        };
+        Returns: Json;
+      };
       create_pos_sale: {
         Args: {
           p_business_id: string;

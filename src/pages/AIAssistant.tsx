@@ -7,7 +7,7 @@ import { recordVoiceCommand, type VoiceCommandResult } from '../lib/subscription
 import {
   agentModeLabel,
   createAIConversation,
-  generateAgentResponse,
+  generateOpenAIAgentResponse,
   generateBusinessMemory,
   loadAIConversations,
   loadBusinessAIContext,
@@ -138,7 +138,7 @@ export const AIAssistant: React.FC = () => {
     try {
       const context = await loadBusinessAIContext(businessId);
       await generateBusinessMemory(businessId, context, { name: currentBusiness?.name, industry: currentBusiness?.industry, type: currentBusiness?.type });
-      const agentResponse = generateAgentResponse(activeMode, content, context);
+      const agentResponse = await generateOpenAIAgentResponse(businessId, activeMode, content, context);
       const assistantMessage = nowMessage('assistant', [
         `## ${agentResponse.title}`,
         agentResponse.summary,

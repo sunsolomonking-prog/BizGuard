@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, Users, MessageSquare, FileText, CreditCard,
-  Settings, ShieldCheck, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, Bell, X
+  Settings, ShieldCheck, MoreHorizontal, ChevronDown, ChevronLeft, ChevronRight, X, Globe2
 } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { cn } from '../../utils/cn';
@@ -21,6 +21,7 @@ const primary = [
 ];
 
 const secondary = [
+  { name: 'Global Market Readiness', href: '/global-market', icon: Globe2 },
   { name: 'Analytics', href: '/analytics' },
   { name: 'Alerts', href: '/alerts' },
   { name: 'Predictions', href: '/predictions' },

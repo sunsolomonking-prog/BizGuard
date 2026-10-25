@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { useAppStore } from '../store';
 import { PLAN_DEFINITIONS } from '../lib/subscriptions';
+import type { Database } from '../lib/database.types';
 
 interface AdminUser {
   id: string;
@@ -41,7 +42,7 @@ export const AdminPortal: React.FC = () => {
   // supabase.rpc loses its `this` context and causes "Cannot read properties
   // of undefined (reading 'rest')" in production.
   const adminRpc = React.useCallback(
-    (functionName: string, args?: Record<string, unknown>) => supabase.rpc(functionName, args),
+    (functionName: string, args?: Record<string, unknown>) => supabase.rpc(functionName as keyof Database['public']['Functions'], args as never),
     [],
   );
   const [users, setUsers] = React.useState<AdminUser[]>([]);
@@ -86,9 +87,9 @@ export const AdminPortal: React.FC = () => {
         adminRpc('admin_list_payment_requests'),
       ]);
       if (usersResult.error) toast.error(`Users: ${usersResult.error.message}`);
-      else setUsers((usersResult.data || []) as AdminUser[]);
+      else setUsers((usersResult.data || []) as unknown as AdminUser[]);
       if (paymentsResult.error) toast.error(`Payments: ${paymentsResult.error.message}`);
-      else setPayments((paymentsResult.data || []) as PaymentRequest[]);
+      else setPayments((paymentsResult.data || []) as unknown as PaymentRequest[]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Admin data could not be loaded.');
     } finally {

@@ -93,30 +93,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         {/* Right section */}
         <div className="flex items-center gap-2">
-          {/* Admin Portal: visible only to authorized Super Admins. */}
-          {isSuperAdmin && (
-            <Link
-              to="/admin"
-              aria-label="Open Admin Portal"
-              aria-current={isAdminPage ? 'page' : undefined}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-black tracking-wide shadow-md transition-all duration-200 sm:px-4 sm:py-2.5',
-                'hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2',
-                isAdminPage
-                  ? 'border-amber-500 bg-amber-400 text-slate-950 shadow-amber-200'
-                  : 'border-amber-400 bg-slate-950 text-white shadow-amber-100 hover:bg-slate-800'
-              )}
-            >
-              <ShieldCheck
-                className="h-4 w-4"
-                aria-hidden="true"
-              />
-
-              <span className="sm:hidden">ADMIN</span>
-              <span className="hidden sm:inline">ADMIN PORTAL</span>
-            </Link>
-          )}
-
           {/* Theme toggle */}
           <button
             type="button"

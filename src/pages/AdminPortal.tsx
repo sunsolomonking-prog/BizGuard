@@ -106,12 +106,18 @@ export const AdminPortal: React.FC = () => {
   };
 
   const review = async (request: PaymentRequest, decision: 'approved' | 'rejected') => {
+    if (decision === 'approved' && request.provider === 'usdt_erc20') {
+      const confirmed = window.confirm(
+        'Before approving, verify on Etherscan: (1) successful transaction, (2) Ethereum mainnet, (3) USDT token contract, (4) exact BizGuard wallet destination, (5) received USDT amount against the plan price, and (6) this transaction has not already been credited. Only continue if every check passes.'
+      );
+      if (!confirmed) return;
+    }
     setWorkingId(request.id);
     try {
       const { error } = await adminRpc('admin_review_payment_request', {
         p_request_id: request.id,
         p_decision: decision,
-        p_admin_note: decision === 'approved' ? 'Approved by BizGuard administrator.' : 'Payment proof was not approved.',
+        p_admin_note: decision === 'approved' ? (request.provider === 'usdt_erc20' ? 'USDT transaction manually verified on Etherscan: successful status, Ethereum mainnet, token contract, destination, amount, and non-duplicate confirmed by administrator.' : 'Approved by BizGuard administrator.') : 'Payment proof was not approved.',
       });
       if (error) throw error;
       toast.success(decision === 'approved' ? 'Payment approved and subscription activated.' : 'Payment request rejected.');

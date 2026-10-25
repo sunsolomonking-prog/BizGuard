@@ -8,6 +8,7 @@ on:
       - "src/**"
       - "supabase/migrations/**"
       - "supabase/diagnostics/**"
+      - "supabase/functions/**"
       - "docs/GLOBAL_MARKET_*.md"
       - "package.json"
       - "package-lock.json"
@@ -53,6 +54,14 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Set up Deno for Edge Function validation
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check OpenAI Edge Function
+        run: deno check supabase/functions/bizguard-ai/index.ts
 
       - name: Type-check
         run: npm run typecheck

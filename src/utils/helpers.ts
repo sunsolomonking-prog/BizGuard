@@ -1,19 +1,43 @@
 import { format, formatDistanceToNow, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
-// Currency formatting
-export const formatCurrency = (amount: number, currency: string = 'NGN'): string => {
-  const currencies: Record<string, { symbol: string; locale: string }> = {
-    NGN: { symbol: '₦', locale: 'en-NG' },
-    USD: { symbol: '$', locale: 'en-US' },
-    EUR: { symbol: '€', locale: 'de-DE' },
-    GBP: { symbol: '£', locale: 'en-GB' },
-    KES: { symbol: 'KSh', locale: 'en-KE' },
-    GHS: { symbol: '₵', locale: 'en-GH' },
-    ZAR: { symbol: 'R', locale: 'en-ZA' },
-  };
+// Currency formatting. The selected market controls locale-aware display only;
+// callers must convert amounts using a verified FX rate before changing currency.
+export const getMarketPreference = (): { countryCode?: string; reportingCurrency?: string; locale?: string; timezone?: string } | null => {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem('bizguard-market-preference') : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
-  const config = currencies[currency] || { symbol: currency, locale: 'en-US' };
-  return `${config.symbol}${amount.toLocaleString(config.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const getMarketLocale = (): string => {
+  const preference = getMarketPreference();
+  const countryLocale: Record<string, string> = {
+    NG: 'en-NG', NO: 'nb-NO', US: 'en-US', GB: 'en-GB', IE: 'en-IE',
+    DE: 'de-DE', FR: 'fr-FR', PT: 'pt-PT', ES: 'es-ES', CA: 'en-CA',
+    AU: 'en-AU', NZ: 'en-NZ', IN: 'en-IN', KE: 'en-KE', GH: 'en-GH',
+    ZA: 'en-ZA', JP: 'ja-JP', CN: 'zh-CN', CH: 'de-CH', AE: 'ar-AE',
+    BR: 'pt-BR', MX: 'es-MX', SG: 'en-SG', HK: 'zh-HK', SE: 'sv-SE',
+    DK: 'da-DK', PL: 'pl-PL', SA: 'ar-SA', TR: 'tr-TR',
+  };
+  return (preference?.countryCode && countryLocale[preference.countryCode]) || 'en-US';
+};
+
+export const formatCurrency = (amount: number, currency?: string, locale?: string): string => {
+  const preference = getMarketPreference();
+  const selectedCurrency = currency || preference?.reportingCurrency || 'NGN';
+  const selectedLocale = locale || getMarketLocale();
+  try {
+    return new Intl.NumberFormat(selectedLocale, {
+      style: 'currency',
+      currency: selectedCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${selectedCurrency} ${amount.toLocaleString(selectedLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
 };
 
 // Date formatting

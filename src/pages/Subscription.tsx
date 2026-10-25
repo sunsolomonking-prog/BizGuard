@@ -7,6 +7,7 @@ import { createPaymentRequest, getPaymentRequest, getPendingPaymentRequest, type
 import { formatCurrency } from '../utils/helpers';
 import VoiceUsageWidget from '../components/subscription/VoiceUsageWidget';
 import PaymentAccountDetails from '../components/billing/PaymentAccountDetails';
+import { formatGlobalAmount, getGlobalPriceQuote, PRICING_MARKETS, type GlobalPriceQuote } from '../lib/globalPricing';
 
 export const Subscription: React.FC = () => {
   const { currentBusiness, user } = useAppStore();
@@ -16,6 +17,12 @@ export const Subscription: React.FC = () => {
   const [requestPlan, setRequestPlan] = React.useState<SubscriptionPlanCode | null>(null);
   const [reference, setReference] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState<'bank_transfer' | 'usdt_erc20'>('bank_transfer');
+  const [pricingMarket, setPricingMarket] = React.useState(() => {
+    try { return localStorage.getItem('bizguard-subscription-market') || 'NG'; } catch { return 'NG'; }
+  });
+  const [globalQuote, setGlobalQuote] = React.useState<GlobalPriceQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = React.useState(false);
+  const [quoteError, setQuoteError] = React.useState<string | null>(null);
   const [note, setNote] = React.useState('');
   const [proof, setProof] = React.useState<File | null>(null);
   const [subscriptionError, setSubscriptionError] = React.useState<string | null>(null);
@@ -26,6 +33,24 @@ export const Subscription: React.FC = () => {
   const approvalCheckRef = React.useRef(false);
 
   const businessId = currentBusiness?.id;
+  const selectedMarket = PRICING_MARKETS.find((market) => market.countryCode === pricingMarket) || PRICING_MARKETS[0];
+
+  React.useEffect(() => {
+    try { localStorage.setItem('bizguard-subscription-market', selectedMarket.countryCode); } catch { /* preference is optional */ }
+  }, [selectedMarket.countryCode]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!requestPlan || requestPlan === 'free') { setGlobalQuote(null); setQuoteError(null); return; }
+    setQuoteLoading(true);
+    setQuoteError(null);
+    setGlobalQuote(null);
+    getGlobalPriceQuote(getPlanDefinition(requestPlan).monthlyPrice, selectedMarket.currency)
+      .then((quote) => { if (!cancelled) setGlobalQuote(quote); })
+      .catch((error) => { if (!cancelled) setQuoteError(error instanceof Error ? error.message : 'Live quote unavailable.'); })
+      .finally(() => { if (!cancelled) setQuoteLoading(false); });
+    return () => { cancelled = true; };
+  }, [requestPlan, selectedMarket.currency]);
 
   const loadSubscription = React.useCallback(async () => {
     if (!businessId) return;
@@ -77,6 +102,8 @@ export const Subscription: React.FC = () => {
     setRequestPlan(null);
     setReference('');
     setPaymentMethod('bank_transfer');
+    setGlobalQuote(null);
+    setQuoteError(null);
     setNote('');
     setProof(null);
     setSubmittedRequest(null);
@@ -130,7 +157,15 @@ export const Subscription: React.FC = () => {
       toast.error('Enter the full Ethereum transaction hash (0x followed by 64 hexadecimal characters).');
       return;
     }
-    const request = await createPaymentRequest({ businessId, userId: user.id, planCode: requestPlan, amountNgn: plan.monthlyPrice, provider: paymentMethod, reference, note: paymentMethod === 'usdt_erc20' ? `USDT on Ethereum ERC-20 mainnet. ${note}`.trim() : note, proof });
+    const quote = globalQuote;
+      if (paymentMethod === 'usdt_erc20' && (!quote || Date.now() >= new Date(quote.expiresAt).getTime())) {
+        throw new Error('The USDT quote is missing or expired. Refresh the quote before submitting.');
+      }
+      const quoteAudit = quote
+        ? `[GLOBAL_QUOTE base=NGN ${quote.baseAmountNgn}; country=${selectedMarket.countryCode}; local=${quote.localAmount.toFixed(4)} ${quote.localCurrency}; usdt=${quote.usdtAmount.toFixed(6)} USDT; source=${quote.source}; fetched=${quote.fetchedAt}; expires=${quote.expiresAt}]`
+        : '';
+      const paymentNote = [paymentMethod === 'usdt_erc20' ? 'USDT on Ethereum ERC-20 mainnet.' : '', quoteAudit, note].filter(Boolean).join(' ').trim();
+      const request = await createPaymentRequest({ businessId, userId: user.id, planCode: requestPlan, amountNgn: plan.monthlyPrice, provider: paymentMethod, reference, note: paymentNote, proof });
       const normalized = request as PaymentRequestRecord;
       setSubmittedRequest(normalized);
       setPaymentStage('submitted');
@@ -178,7 +213,7 @@ export const Subscription: React.FC = () => {
       {snapUsage && <section className="rounded-3xl border border-cyan-200 bg-cyan-50 p-6 shadow-sm"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[.18em] text-cyan-700">Snap Count Usage</p><h2 className="mt-1 text-2xl font-black text-slate-950">{snapUsage.is_unlimited ? 'Unlimited Snap Counts' : `${snapUsage.remaining_today ?? 0} Snap Counts remaining today`}</h2><p className="mt-1 text-sm text-slate-600">{snapUsage.is_unlimited ? 'Enterprise includes unlimited daily Snap Count analyses.' : `${snapUsage.used_today} of ${snapUsage.daily_limit} used today on the ${snapUsage.plan_name} plan.`}</p></div>{!snapUsage.is_unlimited && (snapUsage.remaining_today ?? 0) === 0 && <button onClick={() => document.getElementById('bizguard-plan-choices')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black text-white">Choose a plan</button>}</div></section>}
 
       <section id="bizguard-plan-choices" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-6 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white"><Crown className="h-5 w-5" /></div><div><h2 className="text-lg font-black text-slate-950">Simple plan choices</h2><p className="text-sm text-slate-500">Your existing Free → Starter → Pro → Business → Enterprise structure stays intact.</p></div></div>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-white"><Crown className="h-5 w-5" /></div><div><h2 className="text-lg font-black text-slate-950">Simple plan choices</h2><p className="text-sm text-slate-500">Your existing Free → Starter → Pro → Business → Enterprise structure stays intact.</p></div></div><label className="block min-w-56 text-sm font-bold text-slate-700">Country / preferred currency<select value={pricingMarket} onChange={(e) => setPricingMarket(e.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold">{PRICING_MARKETS.map((market) => <option key={market.countryCode} value={market.countryCode}>{market.countryName} · {market.currency}</option>)}</select></label></div>
         <div className="grid gap-4 xl:grid-cols-5">
           {PLAN_DEFINITIONS.map((plan) => {
             const current = selectedPlan === plan.code;
@@ -201,7 +236,7 @@ export const Subscription: React.FC = () => {
             <div>
               <p className="text-xs font-black uppercase tracking-[.18em] text-slate-400">Payment request</p>
               <h2 className="mt-2 text-2xl font-black text-slate-950">{getPlanDefinition(requestPlan).name}</h2>
-              <p className="mt-1 text-sm text-slate-500">{formatCurrency(getPlanDefinition(requestPlan).monthlyPrice)} per month</p>
+              <p className="mt-1 text-sm text-slate-500">{formatCurrency(getPlanDefinition(requestPlan).monthlyPrice)} NGN base price per month</p><p className="mt-1 text-sm font-bold text-cyan-800">{quoteLoading ? 'Refreshing live currency quote…' : globalQuote ? `${formatGlobalAmount(globalQuote.localAmount, globalQuote.localCurrency, selectedMarket.locale)} per month in ${selectedMarket.countryName}` : quoteError ? 'Local quote unavailable' : 'Select country for a live price quote'}</p>
             </div>
             <button onClick={resetPaymentModal} className="rounded-xl p-2 hover:bg-slate-100" aria-label="Close payment request"><X className="h-5 w-5" /></button>
           </div>
@@ -212,6 +247,17 @@ export const Subscription: React.FC = () => {
               <button type="button" onClick={() => setPaymentMethod('usdt_erc20')} className={`rounded-lg px-3 py-2.5 text-sm font-black ${paymentMethod === 'usdt_erc20' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}>USDT · ERC-20</button>
             </div>
             <PaymentAccountDetails amount={getPlanDefinition(requestPlan).monthlyPrice} compact={true} showInstructions={true} />
+            <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
+              <p className="text-xs font-black uppercase tracking-wide text-cyan-800">Global pricing quote</p>
+              {quoteLoading && <p className="mt-2 text-sm text-slate-600">Getting current FX and USDT market rates…</p>}
+              {quoteError && <p className="mt-2 text-sm text-rose-700">{quoteError} Try again shortly or use bank transfer in NGN.</p>}
+              {globalQuote && <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-white p-3"><p className="text-xs text-slate-500">Local price · {selectedMarket.currency}</p><p className="mt-1 text-xl font-black text-slate-950">{formatGlobalAmount(globalQuote.localAmount, globalQuote.localCurrency, selectedMarket.locale)}</p></div>
+                <div className="rounded-xl bg-white p-3"><p className="text-xs text-slate-500">Indicative crypto amount</p><p className="mt-1 text-xl font-black text-slate-950">{globalQuote.usdtAmount.toFixed(6)} USDT</p><p className="mt-1 text-xs text-slate-500">Ethereum mainnet · ERC-20</p></div>
+              </div>}
+              {globalQuote && <p className="mt-3 text-xs leading-5 text-slate-600">Rate source: {globalQuote.source}. Rate timestamp: {globalQuote.fetchedAt}. Quote expires: {new Date(globalQuote.expiresAt).toLocaleTimeString(selectedMarket.locale)}. This is an indicative display quote, not a guaranteed exchange or settlement rate. Admin must verify the amount received before activation.</p>}
+              {paymentMethod === 'usdt_erc20' && !globalQuote && <button type="button" onClick={() => { setPricingMarket(selectedMarket.countryCode); setQuoteError(null); setGlobalQuote(null); setRequestPlan(requestPlan); }} className="mt-3 rounded-lg border border-cyan-300 bg-white px-3 py-2 text-xs font-bold text-cyan-900">Refresh quote</button>}
+            </div>
             {paymentMethod === 'usdt_erc20' && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
               <p className="font-black">Crypto payment verification</p>
               <p className="mt-1 leading-6">Send USDT on Ethereum mainnet (ERC-20) only. The displayed plan price is in NGN; confirm the exact USDT amount with BizGuard support before sending. Your subscription remains pending until an administrator verifies the transaction on Etherscan, checks the destination wallet and received amount, and approves it.</p>

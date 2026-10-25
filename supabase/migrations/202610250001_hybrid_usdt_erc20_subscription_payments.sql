@@ -2,6 +2,12 @@
 -- Crypto approvals remain gated by a Super Admin and require explicit verification attestation.
 -- No existing plan, entitlement, or bank-transfer workflow is removed.
 
+-- Prevent the same Ethereum transaction hash being submitted against multiple
+-- USDT payment requests. Existing bank-transfer references remain unaffected.
+create unique index if not exists payment_requests_usdt_tx_hash_uidx
+  on public.payment_requests (lower(reference))
+  where provider = 'usdt_erc20' and reference is not null;
+
 create or replace function public.create_payment_request(
   p_business_id uuid,
   p_plan_code text,

@@ -89,7 +89,7 @@ const emptyDashboard: DashboardState = {
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-const formatDayName = (date: Date) => date.toLocaleDateString(undefined, { weekday: 'short' });
+const formatDayName = (date: Date, locale = 'en-US', timeZone = 'UTC') => date.toLocaleDateString(locale, { weekday: 'short', timeZone });
 
 const calculateHealthScore = (state: Pick<DashboardState, 'revenue' | 'lowStockCount' | 'outstandingInvoices' | 'overdueInvoices' | 'salesCount'>) => {
   let score = 70;
@@ -119,7 +119,7 @@ export const Dashboard: React.FC = () => {
   const [marketFxMessage, setMarketFxMessage] = React.useState<string | null>(null);
   const displayCurrency = marketFx ? (marketPreference?.reportingCurrency || currentBusiness?.currency || 'NGN') : (currentBusiness?.currency || 'NGN');
   const convertForDisplay = React.useCallback((amount: number) => marketFx ? amount * marketFx.rate : amount, [marketFx]);
-  const money = React.useCallback((amount: number) => formatCurrency(convertForDisplay(amount), displayCurrency), [convertForDisplay, displayCurrency]);
+  const money = React.useCallback((amount: number) => formatCurrency(convertForDisplay(amount), displayCurrency, marketPreference?.countryCode === 'NO' ? 'nb-NO' : undefined), [convertForDisplay, displayCurrency, marketPreference?.countryCode]);
 
   React.useEffect(() => {
     const updatePreference = (event?: Event) => {
@@ -242,7 +242,7 @@ export const Dashboard: React.FC = () => {
       date.setDate(sevenDaysAgo.getDate() + index);
       const daySales = recentSales.filter((sale) => startOfDay(new Date(sale.created_at)).getTime() === startOfDay(date).getTime());
       return {
-        name: formatDayName(date),
+        name: formatDayName(date, marketPreference?.countryCode === 'NO' ? 'nb-NO' : undefined, marketPreference?.timezone || 'UTC'),
         sales: daySales.length,
         revenue: daySales.reduce((sum, sale) => sum + Number(sale.total), 0),
       };
@@ -289,7 +289,7 @@ export const Dashboard: React.FC = () => {
     nextDashboard.healthScore = calculateHealthScore(nextDashboard);
     setDashboard(nextDashboard);
     setIsLoading(false);
-  }, [businessId]);
+  }, [businessId, marketPreference?.countryCode, marketPreference?.timezone]);
 
   React.useEffect(() => {
     loadDashboard();

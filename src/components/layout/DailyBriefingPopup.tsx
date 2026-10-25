@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Activity, ArrowRight, BellRing, BrainCircuit, Check, Clock3, Pause, Sparkles, X } from 'lucide-react';
+import { Activity, ArrowRight, BrainCircuit, Check, Clock3, Pause, Sparkles, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../store';
 import { getExecutiveDailyBriefing, type NeuralCoreResult } from '../../lib/neuralCore';
@@ -28,7 +28,6 @@ export const DailyBriefingPopup: React.FC = () => {
   const [loading, setLoading] = React.useState(false);
   const [nextPopupAt, setNextPopupAt] = React.useState(Date.now() + POPUP_EVERY_MS);
   const [remaining, setRemaining] = React.useState(40);
-  const [muted, setMuted] = React.useState(false);
 
   const savePreferences = React.useCallback((next: Preferences) => {
     setPreferences(next);
@@ -70,11 +69,6 @@ export const DailyBriefingPopup: React.FC = () => {
     }, 1000);
     return () => window.clearInterval(tick);
   }, [businessId, nextPopupAt]);
-
-  React.useEffect(() => {
-    if (!visible || muted || !briefing?.summary) return;
-    // Audio is opt-in only; browsers require a user gesture before speech.
-  }, [visible, muted, briefing]);
 
   if (!businessId) return null;
 

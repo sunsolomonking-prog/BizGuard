@@ -109,6 +109,73 @@ export const Dashboard: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
 
   const businessId = currentBusiness?.id;
+  const [marketPreference, setMarketPreference] = React.useState<{ countryCode: string; reportingCurrency: string; locale: string; timezone: string } | null>(() => {
+    try {
+      const raw = window.localStorage.getItem('bizguard-market-preference');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+  const [marketFx, setMarketFx] = React.useState<{ rate: number; source: string; effectiveAt: string } | null>(null);
+  const [marketFxMessage, setMarketFxMessage] = React.useState<string | null>(null);
+  const displayCurrency = marketFx ? (marketPreference?.reportingCurrency || currentBusiness?.currency || 'NGN') : (currentBusiness?.currency || 'NGN');
+  const convertForDisplay = React.useCallback((amount: number) => marketFx ? amount * marketFx.rate : amount, [marketFx]);
+  const money = React.useCallback((amount: number) => formatCurrency(convertForDisplay(amount), displayCurrency), [convertForDisplay, displayCurrency]);
+
+  React.useEffect(() => {
+    const updatePreference = (event?: Event) => {
+      try {
+        const detail = (event as CustomEvent | undefined)?.detail;
+        const raw = window.localStorage.getItem('bizguard-market-preference');
+        const saved = detail || (raw ? JSON.parse(raw) : null);
+        if (saved) setMarketPreference({
+          countryCode: saved.countryCode,
+          reportingCurrency: saved.reportingCurrency,
+          locale: saved.locale || 'en',
+          timezone: saved.timezone || 'UTC',
+        });
+      } catch { /* Keep the last valid preference. */ }
+    };
+    window.addEventListener('bizguard:market-preference-changed', updatePreference);
+    updatePreference();
+    return () => window.removeEventListener('bizguard:market-preference-changed', updatePreference);
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadMarketRate = async () => {
+      const baseCurrency = String(currentBusiness?.currency || 'NGN').toUpperCase();
+      const quoteCurrency = String(marketPreference?.reportingCurrency || baseCurrency).toUpperCase();
+      setMarketFx(null);
+      setMarketFxMessage(null);
+      if (!businessId || baseCurrency === quoteCurrency) return;
+      const { data, error } = await supabase
+        .from('global_fx_rates')
+        .select('base_currency,quote_currency,rate,source,effective_at')
+        .eq('business_id', businessId)
+        .in('base_currency', [baseCurrency, quoteCurrency])
+        .in('quote_currency', [baseCurrency, quoteCurrency])
+        .order('effective_at', { ascending: false })
+        .limit(30);
+      if (cancelled) return;
+      if (error) {
+        setMarketFxMessage(`Showing original ${baseCurrency} values: no verified ${quoteCurrency} exchange rate could be loaded.`);
+        return;
+      }
+      const rows = data || [];
+      const direct = rows.find((row) => row.base_currency === baseCurrency && row.quote_currency === quoteCurrency);
+      const reverse = rows.find((row) => row.base_currency === quoteCurrency && row.quote_currency === baseCurrency);
+      if (direct && Number(direct.rate) > 0) {
+        setMarketFx({ rate: Number(direct.rate), source: direct.source, effectiveAt: direct.effective_at });
+      } else if (reverse && Number(reverse.rate) > 0) {
+        setMarketFx({ rate: 1 / Number(reverse.rate), source: reverse.source, effectiveAt: reverse.effective_at });
+      } else {
+        setMarketFxMessage(`Showing original ${baseCurrency} values. Add and verify a ${baseCurrency}/${quoteCurrency} rate in Global Market before reporting in ${quoteCurrency}.`);
+      }
+    };
+    void loadMarketRate();
+    return () => { cancelled = true; };
+  }, [businessId, currentBusiness?.currency, marketPreference?.reportingCurrency]);
+
 
   const loadDashboard = React.useCallback(async () => {
     if (!businessId) {
@@ -243,8 +310,8 @@ export const Dashboard: React.FC = () => {
   }, [businessId, loadDashboard]);
 
   const metrics = [
-    { title: 'Revenue', value: formatCurrency(dashboard.revenue), change: dashboard.revenueGrowth, icon: DollarSign, color: 'from-emerald-500 to-green-600' },
-    { title: 'Profit', value: formatCurrency(dashboard.profit), change: dashboard.profit > 0 ? 8.4 : 0, icon: TrendingUp, color: 'from-cyan-500 to-blue-600' },
+    { title: 'Revenue', value: money(dashboard.revenue), change: dashboard.revenueGrowth, icon: DollarSign, color: 'from-emerald-500 to-green-600' },
+    { title: 'Profit', value: money(dashboard.profit), change: dashboard.profit > 0 ? 8.4 : 0, icon: TrendingUp, color: 'from-cyan-500 to-blue-600' },
     { title: 'Sales', value: formatNumber(dashboard.salesCount), change: dashboard.revenueGrowth, icon: ShoppingCart, color: 'from-blue-500 to-cyan-600' },
     { title: 'Customers', value: formatNumber(dashboard.customersCount), change: 0, icon: Users, color: 'from-purple-500 to-pink-600' },
     { title: 'Products', value: formatNumber(dashboard.productsCount), change: 0, icon: Package, color: 'from-orange-500 to-red-600' },
@@ -275,6 +342,15 @@ export const Dashboard: React.FC = () => {
         <button onClick={() => navigate('/debtors')} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"><Users className="h-5 w-5" /><p className="mt-3 text-sm font-black">Record debt</p><p className="mt-1 text-xs text-slate-400">Track who owes</p></button>
         <button onClick={() => navigate('/ai-assistant')} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"><MessageSquare className="h-5 w-5" /><p className="mt-3 text-sm font-black">Ask BizGuard</p><p className="mt-1 text-xs text-slate-400">Get a quick answer</p></button>
       </div>
+
+      {marketPreference && (
+        <div className={cn('rounded-xl border px-4 py-3 text-sm', marketFx ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900')}>
+          <p className="font-semibold">Market view: {marketPreference.countryCode} · {marketFx ? displayCurrency : (currentBusiness?.currency || 'NGN')} · {marketPreference.timezone}</p>
+          <p className="mt-1">{marketFx
+            ? `Amounts converted from ${currentBusiness?.currency || 'NGN'} using the saved rate (${marketFx.source}, ${new Date(marketFx.effectiveAt).toLocaleString(marketPreference.locale || 'en', { timeZone: marketPreference.timezone || 'UTC' })}).`
+            : (marketFxMessage || (displayCurrency === (currentBusiness?.currency || 'NGN') ? 'Your selected market preferences are active.' : 'Waiting for a verified exchange rate.'))}</p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
@@ -343,8 +419,8 @@ export const Dashboard: React.FC = () => {
                   <LineChart data={dashboard.dailySales}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                    <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => `₦${Number(value) / 1000}K`} />
-                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value) => [formatCurrency(Number(value || 0)), '']} />
+                    <YAxis stroke="#64748b" fontSize={12} tickFormatter={(value) => `${new Intl.NumberFormat(marketPreference?.locale || 'en', { style: 'currency', currency: displayCurrency, maximumFractionDigits: 0 }).format(Number(value) / 1000)}K`} />
+                    <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value) => [money(Number(value || 0)), '']} />
                     <Legend />
                     <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', strokeWidth: 2 }} name="Revenue" />
                     <Line type="monotone" dataKey="sales" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', strokeWidth: 2 }} name="Sales Count" />
@@ -362,7 +438,7 @@ export const Dashboard: React.FC = () => {
                     <Pie data={dashboard.categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={5} dataKey="value">
                       {dashboard.categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                    <Tooltip formatter={(value) => money(Number(value || 0))} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
